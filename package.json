@@ -14,12 +14,7 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "lapi.helloWorld",
-        "title": "Hello World"
-      }
-    ],
+    "commands": [],
     "configuration": {
       "title": "Lapi",
       "properties": {
