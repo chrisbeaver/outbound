@@ -1,18 +1,11 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import type { LaravelRoute } from '../../types/routes';
+
+export type { LaravelRoute };
 
 const execAsync = promisify(exec);
-
-// Interface for a Laravel route
-export interface LaravelRoute {
-	method: string;
-	uri: string;
-	name: string | null;
-	action: string;
-	controller: string | null;
-	middleware: string[];
-}
 
 // In-memory storage for routes
 export class RouteStorage {

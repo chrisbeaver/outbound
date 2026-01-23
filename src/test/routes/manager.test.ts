@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import { RouteStorage, LaravelRoute, getRouteStorage } from '../../modules/routes/manager';
+import type { LaravelRoute } from '../../types/routes';
+import { RouteStorage, getRouteStorage } from '../../modules/routes/manager';
 
 suite('RouteStorage Test Suite', () => {
 	let storage: RouteStorage;

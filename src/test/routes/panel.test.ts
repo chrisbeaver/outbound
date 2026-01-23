@@ -1,7 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import type { LaravelRoute } from '../../types/routes';
 import { RoutesPanel } from '../../modules/routes/panel';
-import { RouteStorage, getRouteStorage, LaravelRoute } from '../../modules/routes/manager';
+import { RouteStorage, getRouteStorage } from '../../modules/routes/manager';
 
 suite('RoutesPanel Test Suite', () => {
 	// Clean up after each test
