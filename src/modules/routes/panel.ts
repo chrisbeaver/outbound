@@ -186,6 +186,159 @@ export class RoutesPanel {
 			color: var(--vscode-descriptionForeground);
 		}
 		
+		.request-btn {
+			background-color: var(--vscode-button-secondaryBackground);
+			color: var(--vscode-button-secondaryForeground);
+			border: none;
+			padding: 4px 12px;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 12px;
+			font-family: var(--vscode-font-family);
+		}
+		
+		.request-btn:hover {
+			background-color: var(--vscode-button-secondaryHoverBackground);
+		}
+		
+		.request-btn:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+		
+		.request-empty {
+			color: var(--vscode-descriptionForeground);
+			font-style: italic;
+			font-size: 12px;
+		}
+		
+		/* Modal styles */
+		.modal-overlay {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba(0, 0, 0, 0.5);
+			z-index: 1000;
+			justify-content: center;
+			align-items: center;
+		}
+		
+		.modal-overlay.active {
+			display: flex;
+		}
+		
+		.modal {
+			background-color: var(--vscode-editor-background);
+			border: 1px solid var(--vscode-widget-border);
+			border-radius: 8px;
+			box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+			max-width: 600px;
+			width: 90%;
+			max-height: 80vh;
+			display: flex;
+			flex-direction: column;
+		}
+		
+		.modal-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 16px 20px;
+			border-bottom: 1px solid var(--vscode-widget-border);
+		}
+		
+		.modal-title {
+			font-size: 14px;
+			font-weight: 600;
+			margin: 0;
+			color: var(--vscode-foreground);
+		}
+		
+		.modal-subtitle {
+			font-size: 12px;
+			color: var(--vscode-descriptionForeground);
+			margin-top: 4px;
+		}
+		
+		.modal-close {
+			background: none;
+			border: none;
+			color: var(--vscode-foreground);
+			font-size: 20px;
+			cursor: pointer;
+			padding: 4px 8px;
+			border-radius: 4px;
+		}
+		
+		.modal-close:hover {
+			background-color: var(--vscode-toolbar-hoverBackground);
+		}
+		
+		.modal-body {
+			padding: 20px;
+			overflow-y: auto;
+			flex: 1;
+		}
+		
+		.modal-json {
+			background-color: var(--vscode-textBlockQuote-background);
+			border: 1px solid var(--vscode-widget-border);
+			border-radius: 4px;
+			padding: 16px;
+			font-family: var(--vscode-editor-font-family);
+			font-size: 13px;
+			white-space: pre-wrap;
+			word-break: break-all;
+			margin: 0;
+			line-height: 1.5;
+		}
+		
+		.modal-footer {
+			padding: 12px 20px;
+			border-top: 1px solid var(--vscode-widget-border);
+			display: flex;
+			justify-content: flex-end;
+			gap: 8px;
+		}
+		
+		.modal-btn {
+			background-color: var(--vscode-button-background);
+			color: var(--vscode-button-foreground);
+			border: none;
+			padding: 6px 14px;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 13px;
+			font-family: var(--vscode-font-family);
+		}
+		
+		.modal-btn:hover {
+			background-color: var(--vscode-button-hoverBackground);
+		}
+		
+		.modal-btn-secondary {
+			background-color: var(--vscode-button-secondaryBackground);
+			color: var(--vscode-button-secondaryForeground);
+		}
+		
+		.modal-btn-secondary:hover {
+			background-color: var(--vscode-button-secondaryHoverBackground);
+		}
+		
+		.copy-success {
+			color: var(--vscode-testing-iconPassed);
+			font-size: 12px;
+			margin-right: auto;
+			display: none;
+		}
+		
+		.copy-success.show {
+			display: block;
+		}
+		
 		.no-routes {
 			text-align: center;
 			padding: 40px;
@@ -209,6 +362,7 @@ export class RoutesPanel {
 				<th>URI</th>
 				<th>Name</th>
 				<th>Controller</th>
+				<th>Request</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -217,10 +371,40 @@ export class RoutesPanel {
 	</table>
 	` : '<div class="no-routes">No routes loaded. Make sure you are in a Laravel project.</div>'}
 	
+	<!-- Modal -->
+	<div class="modal-overlay" id="modal-overlay">
+		<div class="modal">
+			<div class="modal-header">
+				<div>
+					<h2 class="modal-title" id="modal-title">Request Body</h2>
+					<div class="modal-subtitle" id="modal-subtitle"></div>
+				</div>
+				<button class="modal-close" id="modal-close">&times;</button>
+			</div>
+			<div class="modal-body">
+				<pre class="modal-json" id="modal-json"></pre>
+			</div>
+			<div class="modal-footer">
+				<span class="copy-success" id="copy-success">✓ Copied to clipboard</span>
+				<button class="modal-btn modal-btn-secondary" id="modal-copy">Copy JSON</button>
+				<button class="modal-btn" id="modal-close-btn">Close</button>
+			</div>
+		</div>
+	</div>
+	
 	<script>
 		const searchInput = document.getElementById('search');
 		const table = document.getElementById('routes-table');
+		const modalOverlay = document.getElementById('modal-overlay');
+		const modalTitle = document.getElementById('modal-title');
+		const modalSubtitle = document.getElementById('modal-subtitle');
+		const modalJson = document.getElementById('modal-json');
+		const modalClose = document.getElementById('modal-close');
+		const modalCloseBtn = document.getElementById('modal-close-btn');
+		const modalCopy = document.getElementById('modal-copy');
+		const copySuccess = document.getElementById('copy-success');
 		
+		// Search functionality
 		if (searchInput && table) {
 			searchInput.addEventListener('input', function() {
 				const filter = this.value.toLowerCase();
@@ -232,6 +416,45 @@ export class RoutesPanel {
 				});
 			});
 		}
+		
+		// Modal functionality
+		function openModal(method, uri, json) {
+			modalTitle.textContent = 'Request Body';
+			modalSubtitle.textContent = method + ' ' + uri;
+			modalJson.textContent = json;
+			modalOverlay.classList.add('active');
+			copySuccess.classList.remove('show');
+		}
+		
+		function closeModal() {
+			modalOverlay.classList.remove('active');
+		}
+		
+		// Event listeners
+		modalClose.addEventListener('click', closeModal);
+		modalCloseBtn.addEventListener('click', closeModal);
+		modalOverlay.addEventListener('click', function(e) {
+			if (e.target === modalOverlay) {
+				closeModal();
+			}
+		});
+		
+		// Copy functionality
+		modalCopy.addEventListener('click', function() {
+			navigator.clipboard.writeText(modalJson.textContent).then(function() {
+				copySuccess.classList.add('show');
+				setTimeout(function() {
+					copySuccess.classList.remove('show');
+				}, 2000);
+			});
+		});
+		
+		// Escape key to close modal
+		document.addEventListener('keydown', function(e) {
+			if (e.key === 'Escape' && modalOverlay.classList.contains('active')) {
+				closeModal();
+			}
+		});
 	</script>
 </body>
 </html>`;
@@ -241,6 +464,7 @@ export class RoutesPanel {
 		const methodClass = this._getMethodClass(route.method);
 		const controller = route.controller || route.action || 'Closure';
 		const name = route.name || '-';
+		const requestJson = this._generateRequestJson(route);
 
 		return `
 			<tr>
@@ -248,8 +472,89 @@ export class RoutesPanel {
 				<td class="uri">${this._escapeHtml(route.uri)}</td>
 				<td class="name">${this._escapeHtml(name)}</td>
 				<td class="controller">${this._escapeHtml(controller)}</td>
+				<td class="request">${requestJson}</td>
 			</tr>
 		`;
+	}
+
+	private _generateRequestJson(route: LaravelRoute): string {
+		if (!route.requestParams || route.requestParams.length === 0) {
+			return '<span class="request-empty">-</span>';
+		}
+
+		// Build a JSON object from the request parameters
+		const requestObj: Record<string, unknown> = {};
+
+		for (const param of route.requestParams) {
+			if (param.isPathParam) {
+				continue; // Skip path params, they're shown in the URI
+			}
+			requestObj[param.name] = this._getExampleValue(param);
+		}
+
+		if (Object.keys(requestObj).length === 0) {
+			return '<span class="request-empty">-</span>';
+		}
+
+		const json = JSON.stringify(requestObj, null, 2);
+		const escapedJson = this._escapeHtml(json).replace(/'/g, "\\'").replace(/\n/g, '\\n');
+		const method = this._escapeHtml(route.method);
+		const uri = this._escapeHtml(route.uri);
+		const paramCount = Object.keys(requestObj).length;
+		
+		return `<button class="request-btn" onclick="openModal('${method}', '${uri}', '${escapedJson}')">
+			View (${paramCount} param${paramCount !== 1 ? 's' : ''})
+		</button>`;
+	}
+
+	private _getExampleValue(param: import('../../types/routes').RouteRequestParam): unknown {
+		// If there are enum values, use the first one
+		if (param.enumValues && param.enumValues.length > 0) {
+			return param.enumValues[0];
+		}
+
+		// Handle nested children for arrays/objects
+		if (param.children && param.children.length > 0) {
+			if (param.type === 'array') {
+				const childObj: Record<string, unknown> = {};
+				for (const child of param.children) {
+					childObj[child.name] = this._getExampleValue(child);
+				}
+				return [childObj];
+			} else {
+				const obj: Record<string, unknown> = {};
+				for (const child of param.children) {
+					obj[child.name] = this._getExampleValue(child);
+				}
+				return obj;
+			}
+		}
+
+		// Return example value based on type
+		switch (param.type) {
+			case 'integer':
+				return 1;
+			case 'number':
+				return 1.0;
+			case 'boolean':
+				return true;
+			case 'array':
+				return [];
+			case 'object':
+				return {};
+			case 'date':
+				return '2026-01-23';
+			case 'email':
+				return 'user@example.com';
+			case 'url':
+				return 'https://example.com';
+			case 'uuid':
+				return '550e8400-e29b-41d4-a716-446655440000';
+			case 'file':
+				return '(file)';
+			default:
+				return 'string';
+		}
 	}
 
 	private _getMethodClass(method: string): string {
