@@ -81,7 +81,7 @@ export class RoutesPanel {
 
 	private _getHtmlForWebview(webview: vscode.Webview): string {
 		const routes = getRouteStorage().getAll();
-		
+
 		return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -241,7 +241,7 @@ export class RoutesPanel {
 		const methodClass = this._getMethodClass(route.method);
 		const controller = route.controller || route.action || 'Closure';
 		const name = route.name || '-';
-		
+
 		return `
 			<tr>
 				<td><span class="method ${methodClass}">${this._escapeHtml(route.method)}</span></td>

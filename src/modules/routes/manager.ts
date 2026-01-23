@@ -45,7 +45,7 @@ export class RouteStorage {
 	 * Get all routes for a specific controller
 	 */
 	getByController(controller: string): LaravelRoute[] {
-		return this.getAll().filter(route => 
+		return this.getAll().filter(route =>
 			route.controller?.includes(controller)
 		);
 	}
@@ -61,7 +61,7 @@ export class RouteStorage {
 	 * Find routes matching a path pattern
 	 */
 	findByPath(pattern: string): LaravelRoute[] {
-		return this.getAll().filter(route => 
+		return this.getAll().filter(route =>
 			route.uri.includes(pattern)
 		);
 	}
@@ -84,7 +84,7 @@ export async function identifyLaravelRoutes(outputChannel: vscode.OutputChannel)
 	try {
 		// Get the workspace folder
 		const workspaceFolders = vscode.workspace.workspaceFolders;
-		
+
 		if (!workspaceFolders || workspaceFolders.length === 0) {
 			console.warn('No workspace folder found');
 			return;
@@ -112,7 +112,7 @@ export async function identifyLaravelRoutes(outputChannel: vscode.OutputChannel)
 		if (stdout) {
 			// Parse JSON output and store routes
 			const parsedRoutes = parseRouteListJson(stdout, outputChannel);
-			
+
 			// Clear existing routes and store new ones
 			routeStorage.clear();
 			for (const route of parsedRoutes) {
@@ -125,13 +125,13 @@ export async function identifyLaravelRoutes(outputChannel: vscode.OutputChannel)
 			outputChannel.appendLine('');
 			outputChannel.appendLine(`Loaded ${routeStorage.size} routes into memory`);
 			outputChannel.appendLine('');
-			
+
 			// Display routes in a formatted way
 			for (const route of routeStorage.getAll()) {
 				const controller = route.controller || route.action;
 				outputChannel.appendLine(`${route.method.padEnd(10)} ${route.uri.padEnd(40)} → ${controller}`);
 			}
-			
+
 			outputChannel.show();
 			vscode.window.showInformationMessage(`Laravel routes loaded: ${routeStorage.size} routes stored`);
 		}
@@ -140,7 +140,7 @@ export async function identifyLaravelRoutes(outputChannel: vscode.OutputChannel)
 		outputChannel.clear();
 		outputChannel.appendLine('=== Laravel Routes Error ===');
 		outputChannel.appendLine('');
-		
+
 		if (error.code === 'ENOENT') {
 			const msg = 'PHP executable not found. Make sure PHP is installed and in PATH.';
 			outputChannel.appendLine(msg);
@@ -181,7 +181,7 @@ function parseRouteListJson(jsonOutput: string, outputChannel: vscode.OutputChan
 			// Extract controller from action string (e.g., "App\Http\Controllers\UserController@index")
 			let controller: string | null = null;
 			const action = item.action || '';
-			
+
 			if (action.includes('@')) {
 				controller = action;
 			} else if (action.includes('\\')) {
@@ -190,13 +190,13 @@ function parseRouteListJson(jsonOutput: string, outputChannel: vscode.OutputChan
 			}
 
 			// Handle method - can be a string or array
-			const methods = Array.isArray(item.method) 
-				? item.method.join('|') 
+			const methods = Array.isArray(item.method)
+				? item.method.join('|')
 				: (item.method || 'GET');
 
 			// Handle middleware - can be string or array
-			const middleware = Array.isArray(item.middleware) 
-				? item.middleware 
+			const middleware = Array.isArray(item.middleware)
+				? item.middleware
 				: (item.middleware ? [item.middleware] : []);
 
 			routes.push({
