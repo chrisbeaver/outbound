@@ -14,7 +14,12 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [],
+    "commands": [
+      {
+        "command": "lapi.displayRoutesTable",
+        "title": "Lapi: Display Routes Table"
+      }
+    ],
     "configuration": {
       "title": "Lapi",
       "properties": {
