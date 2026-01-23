@@ -1,8 +1,8 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import { identifyLaravelRoutes, getRouteStorage } from './modules/routes-manager';
-import { RoutesPanel } from './modules/routes-panel';
+import { identifyLaravelRoutes, getRouteStorage } from './modules/routes/manager';
+import { RoutesPanel } from './modules/routes/panel';
 
 // Re-export for external access
 export { getRouteStorage };

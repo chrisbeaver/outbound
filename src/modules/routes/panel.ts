@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getRouteStorage, LaravelRoute } from './routes-manager';
+import { getRouteStorage, LaravelRoute } from './manager';
 
 /**
  * Manages the Routes Table webview panel
