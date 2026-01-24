@@ -505,12 +505,11 @@ export class RoutesPanel {
 	<table id="routes-table">
 		<thead>
 			<tr>
-				<th>Submit</th>
+				<th>Request</th>
 				<th>Method</th>
 				<th>URI</th>
 				<th>Name</th>
 				<th>Controller</th>
-				<th>Request</th>
 			</tr>
 		</thead>
 		<tbody>
@@ -716,22 +715,31 @@ export class RoutesPanel {
 		
 		// Modal functionality
 		function openModal(method, uri, fieldsJson) {
-			modalTitle.textContent = 'Request Body';
-			modalSubtitle.textContent = method + ' ' + uri;
 			currentRouteKey = method + ' ' + uri;
 			
 			// Parse fields and build form
 			const fields = JSON.parse(fieldsJson);
 			modalForm.innerHTML = '';
 			
-			// Get saved state or use defaults
-			const savedState = requestState[currentRouteKey] || {};
+			// Update title with param count
+			const paramCount = fields.length;
+			modalTitle.textContent = paramCount > 0 
+				? 'Request Body (' + paramCount + ' param' + (paramCount !== 1 ? 's' : '') + ')'
+				: 'Request Body';
+			modalSubtitle.textContent = method + ' ' + uri;
 			
-			for (const field of fields) {
-				// Use saved value if exists, otherwise use default
-				const value = savedState.hasOwnProperty(field.key) ? savedState[field.key] : field.value;
-				const fieldEl = createField(field.key, value, field.type);
-				modalForm.appendChild(fieldEl);
+			if (fields.length === 0) {
+				modalForm.innerHTML = '<div style="color: var(--vscode-descriptionForeground); font-style: italic;">No request parameters</div>';
+			} else {
+				// Get saved state or use defaults
+				const savedState = requestState[currentRouteKey] || {};
+				
+				for (const field of fields) {
+					// Use saved value if exists, otherwise use default
+					const value = savedState.hasOwnProperty(field.key) ? savedState[field.key] : field.value;
+					const fieldEl = createField(field.key, value, field.type);
+					modalForm.appendChild(fieldEl);
+				}
 			}
 			
 			modalOverlay.classList.add('active');
@@ -816,25 +824,26 @@ export class RoutesPanel {
 		const methodClass = this._getMethodClass(route.method);
 		const controller = route.controller || route.action || 'Closure';
 		const name = route.name || '-';
-		const requestJson = this._generateRequestJson(route);
 		const submitMethod = route.method.split('|')[0].toUpperCase();
 		const submitBtnClass = `submit-btn-${submitMethod.toLowerCase()}`;
+		const fieldsJson = this._generateFieldsJson(route);
+		const method = this._escapeHtml(route.method);
+		const uri = this._escapeHtml(route.uri);
 
 		return `
 			<tr>
-				<td><button class="submit-btn ${submitBtnClass}" onclick="submitRequest('${this._escapeHtml(route.method)}', '${this._escapeHtml(route.uri)}')">${submitMethod}</button></td>
+				<td><button class="submit-btn ${submitBtnClass}" onclick="openModal('${method}', '${uri}', '${fieldsJson}')">${submitMethod}</button></td>
 				<td><span class="method ${methodClass}">${this._escapeHtml(route.method)}</span></td>
 				<td class="uri">${this._escapeHtml(route.uri)}</td>
 				<td class="name">${this._escapeHtml(name)}</td>
 				<td class="controller">${this._escapeHtml(controller)}</td>
-				<td class="request">${requestJson}</td>
 			</tr>
 		`;
 	}
 
-	private _generateRequestJson(route: LaravelRoute): string {
+	private _generateFieldsJson(route: LaravelRoute): string {
 		if (!route.requestParams || route.requestParams.length === 0) {
-			return '<span class="request-empty">-</span>';
+			return '[]';
 		}
 
 		// Build field metadata for the editable form
@@ -851,18 +860,7 @@ export class RoutesPanel {
 			});
 		}
 
-		if (fields.length === 0) {
-			return '<span class="request-empty">-</span>';
-		}
-
-		const fieldsJson = JSON.stringify(fields).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-		const method = this._escapeHtml(route.method);
-		const uri = this._escapeHtml(route.uri);
-		const paramCount = fields.length;
-		
-		return `<button class="request-btn" onclick="openModal('${method}', '${uri}', '${fieldsJson}')">
-			Edit (${paramCount} param${paramCount !== 1 ? 's' : ''})
-		</button>`;
+		return JSON.stringify(fields).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 	}
 
 	private _getExampleValue(param: import('../../types/routes').RouteRequestParam): unknown {
