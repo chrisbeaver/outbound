@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import type { LaravelRoute } from '../../types/routes';
 import { getRouteStorage } from './manager';
+import { executeRequest } from '../api/request';
 
 /**
  * Manages the Routes Table webview panel
@@ -10,9 +11,10 @@ export class RoutesPanel {
 	public static readonly viewType = 'lapiRoutesTable';
 
 	private readonly _panel: vscode.WebviewPanel;
+	private readonly _outputChannel: vscode.OutputChannel;
 	private _disposables: vscode.Disposable[] = [];
 
-	public static createOrShow(extensionUri: vscode.Uri) {
+	public static createOrShow(extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel) {
 		const column = vscode.window.activeTextEditor
 			? vscode.window.activeTextEditor.viewColumn
 			: undefined;
@@ -35,11 +37,12 @@ export class RoutesPanel {
 			}
 		);
 
-		RoutesPanel.currentPanel = new RoutesPanel(panel, extensionUri);
+		RoutesPanel.currentPanel = new RoutesPanel(panel, extensionUri, outputChannel);
 	}
 
-	private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri) {
+	private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel) {
 		this._panel = panel;
+		this._outputChannel = outputChannel;
 
 		// Set the webview's initial html content
 		this._update();
@@ -52,6 +55,52 @@ export class RoutesPanel {
 			() => {
 				if (this._panel.visible) {
 					this._update();
+				}
+			},
+			null,
+			this._disposables
+		);
+
+		// Handle messages from the webview
+		this._panel.webview.onDidReceiveMessage(
+			async (message) => {
+				if (message.command === 'executeRequest') {
+					const { method, uri } = message;
+					const route = getRouteStorage().get(method, uri);
+					
+					if (route) {
+						this._outputChannel.appendLine('');
+						this._outputChannel.appendLine(`=== API Request: ${method} ${uri} ===`);
+						this._outputChannel.appendLine('');
+						
+						try {
+							const response = await executeRequest(route);
+							
+							this._outputChannel.appendLine(`Status: ${response.statusCode} ${response.success ? '✓' : '✗'}`);
+							this._outputChannel.appendLine(`Duration: ${response.duration}ms`);
+							this._outputChannel.appendLine('');
+							this._outputChannel.appendLine('cURL Command:');
+							this._outputChannel.appendLine(response.curlCommand);
+							this._outputChannel.appendLine('');
+							this._outputChannel.appendLine('Response:');
+							
+							if (typeof response.body === 'object') {
+								this._outputChannel.appendLine(JSON.stringify(response.body, null, 2));
+							} else {
+								this._outputChannel.appendLine(response.rawBody || '(empty response)');
+							}
+							
+							if (response.error) {
+								this._outputChannel.appendLine('');
+								this._outputChannel.appendLine(`Error: ${response.error}`);
+							}
+							
+							this._outputChannel.show();
+						} catch (error) {
+							this._outputChannel.appendLine(`Error: ${error}`);
+							this._outputChannel.show();
+						}
+					}
 				}
 			},
 			null,
@@ -206,6 +255,34 @@ export class RoutesPanel {
 			cursor: not-allowed;
 		}
 		
+		.submit-btn {
+			border: none;
+			padding: 4px 12px;
+			border-radius: 4px;
+			cursor: pointer;
+			font-size: 12px;
+			font-weight: bold;
+			font-family: var(--vscode-font-family);
+			min-width: 70px;
+		}
+		
+		.submit-btn:hover {
+			opacity: 0.85;
+		}
+		
+		.submit-btn:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+		
+		.submit-btn-get { background-color: #61affe; color: #fff; }
+		.submit-btn-post { background-color: #49cc90; color: #fff; }
+		.submit-btn-put { background-color: #fca130; color: #fff; }
+		.submit-btn-patch { background-color: #50e3c2; color: #fff; }
+		.submit-btn-delete { background-color: #f93e3e; color: #fff; }
+		.submit-btn-head { background-color: #9012fe; color: #fff; }
+		.submit-btn-options { background-color: #0d5aa7; color: #fff; }
+		
 		.request-empty {
 			color: var(--vscode-descriptionForeground);
 			font-style: italic;
@@ -358,6 +435,7 @@ export class RoutesPanel {
 	<table id="routes-table">
 		<thead>
 			<tr>
+				<th>Submit</th>
 				<th>Method</th>
 				<th>URI</th>
 				<th>Name</th>
@@ -393,6 +471,8 @@ export class RoutesPanel {
 	</div>
 	
 	<script>
+		const vscode = acquireVsCodeApi();
+		
 		const searchInput = document.getElementById('search');
 		const table = document.getElementById('routes-table');
 		const modalOverlay = document.getElementById('modal-overlay');
@@ -403,6 +483,15 @@ export class RoutesPanel {
 		const modalCloseBtn = document.getElementById('modal-close-btn');
 		const modalCopy = document.getElementById('modal-copy');
 		const copySuccess = document.getElementById('copy-success');
+		
+		// Submit request function
+		function submitRequest(method, uri) {
+			vscode.postMessage({
+				command: 'executeRequest',
+				method: method,
+				uri: uri
+			});
+		}
 		
 		// Search functionality
 		if (searchInput && table) {
@@ -465,9 +554,12 @@ export class RoutesPanel {
 		const controller = route.controller || route.action || 'Closure';
 		const name = route.name || '-';
 		const requestJson = this._generateRequestJson(route);
+		const submitMethod = route.method.split('|')[0].toUpperCase();
+		const submitBtnClass = `submit-btn-${submitMethod.toLowerCase()}`;
 
 		return `
 			<tr>
+				<td><button class="submit-btn ${submitBtnClass}" onclick="submitRequest('${this._escapeHtml(route.method)}', '${this._escapeHtml(route.uri)}')">${submitMethod}</button></td>
 				<td><span class="method ${methodClass}">${this._escapeHtml(route.method)}</span></td>
 				<td class="uri">${this._escapeHtml(route.uri)}</td>
 				<td class="name">${this._escapeHtml(name)}</td>

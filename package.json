@@ -23,6 +23,11 @@
     "configuration": {
       "title": "Lapi",
       "properties": {
+        "lapi.apiHost": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "The base URL for the Laravel API server"
+        },
         "lapi.routeListCommand": {
           "type": "string",
           "default": "php artisan route:list",
