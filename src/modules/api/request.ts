@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as http from 'http';
+import * as https from 'https';
 import type { LaravelRoute, RouteRequestConfig, RouteRequestParam, ParamType } from '../../types/routes';
 import type { ApiResponse, RequestOptions } from '../../types/api';
 
@@ -14,6 +16,48 @@ const execAsync = promisify(exec);
 export function getApiHost(): string {
 	const config = vscode.workspace.getConfiguration('lapi');
 	return config.get<string>('apiHost', 'http://localhost:8000');
+}
+
+/**
+ * Check if the API server is available by making a simple HEAD request
+ * @returns Promise<boolean> true if server responds, false otherwise
+ */
+export async function checkServerStatus(): Promise<boolean> {
+	const host = getApiHost();
+	
+	return new Promise((resolve) => {
+		try {
+			const url = new URL(host);
+			const isHttps = url.protocol === 'https:';
+			const client = isHttps ? https : http;
+			
+			const options = {
+				hostname: url.hostname,
+				port: url.port || (isHttps ? 443 : 80),
+				path: '/',
+				method: 'HEAD',
+				timeout: 3000, // 3 second timeout
+			};
+			
+			const req = client.request(options, (res) => {
+				// Any response means server is up (even 404, 500, etc.)
+				resolve(true);
+			});
+			
+			req.on('error', () => {
+				resolve(false);
+			});
+			
+			req.on('timeout', () => {
+				req.destroy();
+				resolve(false);
+			});
+			
+			req.end();
+		} catch {
+			resolve(false);
+		}
+	});
 }
 
 /**

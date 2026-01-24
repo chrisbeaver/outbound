@@ -144,3 +144,47 @@
     font-size: 11px;
     margin-left: 8px;
 }
+
+/* Server status indicator */
+.server-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.server-status-light {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--vscode-descriptionForeground);
+    transition: background-color 0.3s ease;
+}
+
+.server-status-light.checking {
+    background-color: #fca130;
+    animation: pulse 1s infinite;
+}
+
+.server-status-light.online {
+    background-color: #49cc90;
+    box-shadow: 0 0 4px #49cc90;
+}
+
+.server-status-light.offline {
+    background-color: #f93e3e;
+    box-shadow: 0 0 4px #f93e3e;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}

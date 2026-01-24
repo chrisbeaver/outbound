@@ -5,6 +5,10 @@
                 <h2 class="modal-title" id="modal-title">Request Body</h2>
                 <div class="modal-subtitle" id="modal-subtitle"></div>
             </div>
+            <div class="server-status" id="server-status">
+                <span class="server-status-light checking" id="server-status-light"></span>
+                <span id="server-status-text">Checking server...</span>
+            </div>
             <button class="modal-close" id="modal-close">&times;</button>
         </div>
         <div class="modal-body">
@@ -17,7 +21,7 @@
                 Defaults</button>
             <button class="modal-btn modal-btn-secondary" id="modal-copy">Copy JSON</button>
             <button class="modal-btn modal-btn-secondary" id="modal-close-btn">Close</button>
-            <button class="modal-btn" id="modal-send">Send Request</button>
+            <button class="modal-btn" id="modal-send" disabled>Send Request</button>
         </div>
     </div>
 </div>

@@ -11,6 +11,8 @@
 let currentRouteKey = null;
 let currentRouteFields = null;
 let hasPersistedState = false;
+let serverIsOnline = false;
+let serverPollInterval = null;
 
 // Default values from route definitions (rebuilt on refresh)
 const routeDefaults = {};
@@ -39,6 +41,69 @@ function initRequestModal(config) {
 	const modalCopy = document.getElementById('modal-copy');
 	const copySuccess = document.getElementById('copy-success');
 	const jsonError = document.getElementById('json-error');
+	const serverStatusLight = document.getElementById('server-status-light');
+	const serverStatusText = document.getElementById('server-status-text');
+	
+	// Listen for server status response from extension
+	window.addEventListener('message', function(event) {
+		const message = event.data;
+		if (message.command === 'serverStatusResult') {
+			serverIsOnline = message.isAvailable;
+			updateServerStatusUI();
+			
+			// If offline and modal is open, start polling
+			if (!serverIsOnline && modalOverlay.classList.contains('active')) {
+				startServerPolling();
+			} else {
+				stopServerPolling();
+			}
+		}
+	});
+	
+	// Start polling server status every second
+	function startServerPolling() {
+		if (serverPollInterval) return; // Already polling
+		serverPollInterval = setInterval(function() {
+			if (modalOverlay.classList.contains('active') && !serverIsOnline) {
+				vscode.postMessage({ command: 'checkServerStatus' });
+			} else {
+				stopServerPolling();
+			}
+		}, 1000);
+	}
+	
+	// Stop polling
+	function stopServerPolling() {
+		if (serverPollInterval) {
+			clearInterval(serverPollInterval);
+			serverPollInterval = null;
+		}
+	}
+	
+	// Update server status UI
+	function updateServerStatusUI() {
+		serverStatusLight.classList.remove('checking', 'online', 'offline');
+		if (serverIsOnline) {
+			serverStatusLight.classList.add('online');
+			serverStatusText.textContent = 'Server online';
+			modalSend.disabled = false;
+		} else {
+			serverStatusLight.classList.add('offline');
+			serverStatusText.textContent = 'Server offline';
+			modalSend.disabled = true;
+		}
+	}
+	
+	// Check server status
+	function checkServerStatus() {
+		serverIsOnline = false;
+		serverStatusLight.classList.remove('online', 'offline');
+		serverStatusLight.classList.add('checking');
+		serverStatusText.textContent = 'Checking server...';
+		modalSend.disabled = true;
+		
+		vscode.postMessage({ command: 'checkServerStatus' });
+	}
 	
 	// Helper functions
 	function buildDefaults(fields) {
@@ -97,6 +162,7 @@ function initRequestModal(config) {
 	
 	function closeModal() {
 		saveFormState();
+		stopServerPolling();
 		modalOverlay.classList.remove('active');
 	}
 	
@@ -179,17 +245,15 @@ function initRequestModal(config) {
 		modalOverlay.classList.add('active');
 		copySuccess.classList.remove('show');
 		jsonError.classList.remove('show');
+		
+		// Check server status when modal opens
+		checkServerStatus();
 	};
 	
 	// Event listeners
 	modalClose.addEventListener('click', closeModal);
 	modalCloseBtn.addEventListener('click', closeModal);
 	modalReset.addEventListener('click', resetToDefaults);
-	modalOverlay.addEventListener('click', function(e) {
-		if (e.target === modalOverlay) {
-			closeModal();
-		}
-	});
 	
 	// Send request from modal
 	modalSend.addEventListener('click', function() {

@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { LaravelRoute } from '../../types/routes';
 import { getRouteStorage } from './manager';
-import { executeRequest } from '../api/request';
+import { executeRequest, checkServerStatus } from '../api/request';
 
 const WORKSPACE_STATE_KEY = 'lapi.requestParams';
 
@@ -130,6 +130,13 @@ export class RoutesPanel {
 					// Clear persisted params for a route (reset to defaults)
 					const { routeKey } = message;
 					await this._clearRequestParams(routeKey);
+				} else if (message.command === 'checkServerStatus') {
+					// Check if the API server is available
+					const isAvailable = await checkServerStatus();
+					this._panel.webview.postMessage({
+						command: 'serverStatusResult',
+						isAvailable: isAvailable
+					});
 				}
 			},
 			null,
