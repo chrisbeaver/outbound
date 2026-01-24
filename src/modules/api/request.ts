@@ -1,14 +1,10 @@
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import * as http from 'http';
 import * as https from 'https';
 import type { LaravelRoute, RouteRequestConfig, RouteRequestParam, ParamType } from '../../types/routes';
 import type { ApiResponse, RequestOptions } from '../../types/api';
 
 export type { ApiResponse, RequestOptions };
-
-const execAsync = promisify(exec);
 
 /**
  * Get the API host from extension settings
@@ -227,198 +223,156 @@ export function buildRequestConfig(
 }
 
 /**
- * Execute a cURL request and return the response
+ * Execute an HTTP request using Node's native http/https modules
  */
 export async function executeRequest(
-	route: LaravelRoute,
-	options: RequestOptions = {}
-): Promise<ApiResponse> {
-	const curlCommand = buildCurlCommand(route, options);
-	const timeout = options.timeout || 30000;
-	
-	const startTime = Date.now();
-	
-	try {
-		const { stdout, stderr } = await execAsync(curlCommand, {
-			timeout,
-			maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-			shell: '/bin/bash'
-		});
-		
-		const duration = Date.now() - startTime;
-		
-		// Parse the response - status code is after ||| delimiter
-		let rawBody = stdout;
-		let statusCode = 0;
-		
-		const delimiterIndex = stdout.lastIndexOf('|||');
-		if (delimiterIndex !== -1) {
-			rawBody = stdout.substring(0, delimiterIndex);
-			statusCode = parseInt(stdout.substring(delimiterIndex + 3), 10);
-		}
-		
-		// Try to parse as JSON
-		let body: unknown;
-		try {
-			body = JSON.parse(rawBody);
-		} catch {
-			body = rawBody;
-		}
-		
-		return {
-			success: statusCode >= 200 && statusCode < 300,
-			statusCode,
-			headers: {}, // cURL doesn't return headers with this config
-			body,
-			rawBody,
-			duration,
-			curlCommand
-		};
-	} catch (error: unknown) {
-		const duration = Date.now() - startTime;
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		
-		return {
-			success: false,
-			statusCode: 0,
-			headers: {},
-			body: null,
-			rawBody: '',
-			duration,
-			error: errorMessage,
-			curlCommand
-		};
-	}
-}
-
-/**
- * Execute a cURL request with full response headers
- */
-export async function executeRequestWithHeaders(
 	route: LaravelRoute,
 	options: RequestOptions = {}
 ): Promise<ApiResponse> {
 	const host = options.host || getApiHost();
 	const config = buildRequestConfig(route, host, options);
 	const timeout = options.timeout || 30000;
+	const curlCommand = buildCurlCommand(route, options);
 	
-	// Build cURL command with header output
-	const parts: string[] = ['curl'];
-	
-	const method = config.method.toUpperCase();
-	if (method !== 'GET') {
-		parts.push(`-X ${method}`);
-	}
-	
-	for (const [key, value] of Object.entries(config.headers)) {
-		parts.push(`-H '${key}: ${value}'`);
-	}
-	
-	if (options.bearerToken) {
-		parts.push(`-H 'Authorization: Bearer ${options.bearerToken}'`);
-	}
-	
-	if (method !== 'GET' && method !== 'HEAD' && Object.keys(config.bodyParams).length > 0) {
-		if (config.contentType === 'application/json') {
-			const body = JSON.stringify(config.bodyParams);
-			parts.push(`-d '${body}'`);
-		}
-	}
-	
-	let url = config.url;
-	if (Object.keys(config.queryParams).length > 0) {
-		const queryString = Object.entries(config.queryParams)
-			.filter(([, value]) => value !== '')
-			.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-			.join('&');
-		if (queryString) {
-			url += `?${queryString}`;
-		}
-	}
-	
-	parts.push(`'${url}'`);
-	parts.push('-s');
-	parts.push('-i'); // Include headers in output
-	
-	const curlCommand = parts.join(' ');
 	const startTime = Date.now();
 	
-	try {
-		const { stdout } = await execAsync(curlCommand, {
-			timeout,
-			maxBuffer: 10 * 1024 * 1024
-		});
-		
-		const duration = Date.now() - startTime;
-		
-		// Parse headers and body
-		const headerBodySplit = stdout.indexOf('\r\n\r\n');
-		let headerSection: string;
-		let rawBody: string;
-		
-		if (headerBodySplit !== -1) {
-			headerSection = stdout.substring(0, headerBodySplit);
-			rawBody = stdout.substring(headerBodySplit + 4);
-		} else {
-			// Try with just \n\n
-			const altSplit = stdout.indexOf('\n\n');
-			if (altSplit !== -1) {
-				headerSection = stdout.substring(0, altSplit);
-				rawBody = stdout.substring(altSplit + 2);
-			} else {
-				headerSection = '';
-				rawBody = stdout;
-			}
-		}
-		
-		// Parse status code from first line
-		const statusMatch = /HTTP\/[\d.]+ (\d+)/.exec(headerSection);
-		const statusCode = statusMatch ? parseInt(statusMatch[1], 10) : 0;
-		
-		// Parse headers
-		const headers: Record<string, string> = {};
-		const headerLines = headerSection.split(/\r?\n/).slice(1);
-		for (const line of headerLines) {
-			const colonIndex = line.indexOf(':');
-			if (colonIndex !== -1) {
-				const key = line.substring(0, colonIndex).trim();
-				const value = line.substring(colonIndex + 1).trim();
-				headers[key.toLowerCase()] = value;
-			}
-		}
-		
-		// Try to parse body as JSON
-		let body: unknown;
+	return new Promise((resolve) => {
 		try {
-			body = JSON.parse(rawBody);
-		} catch {
-			body = rawBody;
+			// Build full URL with query params
+			let fullUrl = config.url;
+			if (Object.keys(config.queryParams).length > 0) {
+				const queryString = Object.entries(config.queryParams)
+					.filter(([, value]) => value !== '')
+					.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+					.join('&');
+				if (queryString) {
+					fullUrl += `?${queryString}`;
+				}
+			}
+			
+			const url = new URL(fullUrl);
+			const isHttps = url.protocol === 'https:';
+			const client = isHttps ? https : http;
+			
+			// Build request headers
+			const requestHeaders: Record<string, string> = { ...config.headers };
+			if (options.bearerToken) {
+				requestHeaders['Authorization'] = `Bearer ${options.bearerToken}`;
+			}
+			
+			// Prepare request body
+			let requestBody: string | undefined;
+			if (config.method !== 'GET' && config.method !== 'HEAD' && Object.keys(config.bodyParams).length > 0) {
+				if (config.contentType === 'application/json') {
+					requestBody = JSON.stringify(config.bodyParams);
+					requestHeaders['Content-Length'] = Buffer.byteLength(requestBody).toString();
+				} else if (config.contentType === 'application/x-www-form-urlencoded') {
+					requestBody = Object.entries(config.bodyParams)
+						.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+						.join('&');
+					requestHeaders['Content-Length'] = Buffer.byteLength(requestBody).toString();
+				}
+			}
+			
+			const requestOptions: http.RequestOptions = {
+				hostname: url.hostname,
+				port: url.port || (isHttps ? 443 : 80),
+				path: url.pathname + url.search,
+				method: config.method,
+				headers: requestHeaders,
+				timeout: timeout,
+			};
+			
+			const req = client.request(requestOptions, (res) => {
+				const chunks: Buffer[] = [];
+				
+				res.on('data', (chunk: Buffer) => {
+					chunks.push(chunk);
+				});
+				
+				res.on('end', () => {
+					const duration = Date.now() - startTime;
+					const rawBody = Buffer.concat(chunks).toString('utf8');
+					const statusCode = res.statusCode || 0;
+					
+					// Parse response headers
+					const responseHeaders: Record<string, string> = {};
+					for (const [key, value] of Object.entries(res.headers)) {
+						if (value) {
+							responseHeaders[key.toLowerCase()] = Array.isArray(value) ? value.join(', ') : value;
+						}
+					}
+					
+					// Try to parse as JSON
+					let body: unknown;
+					try {
+						body = JSON.parse(rawBody);
+					} catch {
+						body = rawBody;
+					}
+					
+					resolve({
+						success: statusCode >= 200 && statusCode < 300,
+						statusCode,
+						headers: responseHeaders,
+						body,
+						rawBody,
+						duration,
+						curlCommand
+					});
+				});
+			});
+			
+			req.on('error', (error) => {
+				const duration = Date.now() - startTime;
+				resolve({
+					success: false,
+					statusCode: 0,
+					headers: {},
+					body: null,
+					rawBody: '',
+					duration,
+					error: error.message,
+					curlCommand
+				});
+			});
+			
+			req.on('timeout', () => {
+				req.destroy();
+				const duration = Date.now() - startTime;
+				resolve({
+					success: false,
+					statusCode: 0,
+					headers: {},
+					body: null,
+					rawBody: '',
+					duration,
+					error: 'Request timeout',
+					curlCommand
+				});
+			});
+			
+			// Write body if present
+			if (requestBody) {
+				req.write(requestBody);
+			}
+			
+			req.end();
+		} catch (error) {
+			const duration = Date.now() - startTime;
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			resolve({
+				success: false,
+				statusCode: 0,
+				headers: {},
+				body: null,
+				rawBody: '',
+				duration,
+				error: errorMessage,
+				curlCommand
+			});
 		}
-		
-		return {
-			success: statusCode >= 200 && statusCode < 300,
-			statusCode,
-			headers,
-			body,
-			rawBody,
-			duration,
-			curlCommand
-		};
-	} catch (error: unknown) {
-		const duration = Date.now() - startTime;
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		
-		return {
-			success: false,
-			statusCode: 0,
-			headers: {},
-			body: null,
-			rawBody: '',
-			duration,
-			error: errorMessage,
-			curlCommand
-		};
-	}
+	});
 }
 
 /**
