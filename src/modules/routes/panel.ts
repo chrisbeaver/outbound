@@ -46,11 +46,41 @@ export class RoutesPanel {
 		RoutesPanel.currentPanel = new RoutesPanel(panel, extensionUri, outputChannel, context);
 	}
 
-	private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel, context: vscode.ExtensionContext) {
+	public static createOrShowWithRoute(extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel, context: vscode.ExtensionContext, route: LaravelRoute) {
+		const column = vscode.window.activeTextEditor
+			? vscode.window.activeTextEditor.viewColumn
+			: undefined;
+
+		// If we already have a panel, show it and open modal
+		if (RoutesPanel.currentPanel) {
+			RoutesPanel.currentPanel._panel.reveal(column);
+			RoutesPanel.currentPanel._update();
+			RoutesPanel.currentPanel._openModalForRoute(route);
+			return;
+		}
+
+		// Otherwise, create a new panel
+		const panel = vscode.window.createWebviewPanel(
+			RoutesPanel.viewType,
+			'Laravel Routes',
+			column || vscode.ViewColumn.One,
+			{
+				enableScripts: true,
+				retainContextWhenHidden: true
+			}
+		);
+
+		RoutesPanel.currentPanel = new RoutesPanel(panel, extensionUri, outputChannel, context, route);
+	}
+
+	private _pendingRoute: LaravelRoute | undefined;
+
+	private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel, context: vscode.ExtensionContext, initialRoute?: LaravelRoute) {
 		this._panel = panel;
 		this._extensionUri = extensionUri;
 		this._outputChannel = outputChannel;
 		this._context = context;
+		this._pendingRoute = initialRoute;
 
 		// Set the webview's initial html content
 		this._update();
@@ -179,6 +209,27 @@ export class RoutesPanel {
 		const webview = this._panel.webview;
 		this._panel.title = 'Laravel Routes';
 		this._panel.webview.html = this._getHtmlForWebview(webview);
+
+		// If there's a pending route, open the modal after webview is ready
+		if (this._pendingRoute) {
+			const route = this._pendingRoute;
+			this._pendingRoute = undefined;
+			// Small delaykj to let webview initialize
+			setTimeout(() => this._openModalForRoute(route), 100);
+		}
+	}
+
+	public _openModalForRoute(route: LaravelRoute) {
+		const method = this._escapeHtml(route.method);
+		const uri = this._escapeHtml(route.uri);
+		const fieldsJson = this._generateFieldsJson(route);
+		
+		this._panel.webview.postMessage({
+			command: 'openModal',
+			method: method,
+			uri: uri,
+			fields: fieldsJson
+		});
 	}
 
 	private _getHtmlForWebview(webview: vscode.Webview): string {

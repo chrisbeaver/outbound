@@ -18,8 +18,21 @@
       {
         "command": "lapi.displayRoutesTable",
         "title": "Lapi: Display Routes Table"
+      },
+      {
+        "command": "lapi.testEndpoint",
+        "title": "Lapi: Test Endpoint"
       }
     ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "lapi.testEndpoint",
+          "when": "editorLangId == php",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "Lapi",
       "properties": {

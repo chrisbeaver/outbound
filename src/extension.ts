@@ -1,9 +1,11 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { identifyLaravelRoutes, getRouteStorage } from './modules/routes/manager';
 import { RoutesPanel } from './modules/routes/panel';
 import { createRouteParser } from './modules/routes/parser';
+import type { LaravelRoute } from './types/routes';
 
 // Re-export for external access
 export { getRouteStorage };
@@ -33,6 +35,218 @@ export async function activate(context: vscode.ExtensionContext) {
 		RoutesPanel.createOrShow(context.extensionUri, outputChannel, context);
 	});
 	context.subscriptions.push(displayRoutesCommand);
+
+	// Register Test Endpoint command (context menu in PHP files)
+	const testEndpointCommand = vscode.commands.registerCommand('lapi.testEndpoint', async () => {
+		vscode.window.showInformationMessage('Lapi: Test Endpoint triggered');
+		if (outputChannel) {
+			outputChannel.appendLine('[Lapi] Test Endpoint command invoked');
+			outputChannel.show(true);
+		}
+		const editor = vscode.window.activeTextEditor;
+		if (!editor) {
+			vscode.window.showWarningMessage('No active editor');
+			return;
+		}
+
+		const document = editor.document;
+		const position = editor.selection.active;
+
+		let route: LaravelRoute | null = null;
+		try {
+			// Find the route that matches the current file and cursor position
+			route = findRouteAtPosition(document, position);
+		} catch (err) {
+			if (outputChannel) {
+				outputChannel.appendLine(`[Lapi] Error while finding route: ${err}`);
+				outputChannel.show(true);
+			}
+			vscode.window.showErrorMessage('Error finding route. See Lapi output for details.');
+			return;
+		}
+
+		if (!route) {
+			vscode.window.showWarningMessage('No route found for the current position. Make sure you are inside a controller method that is registered as a route.');
+			return;
+		}
+
+		// Open the routes panel with this specific route
+		RoutesPanel.createOrShowWithRoute(context.extensionUri, outputChannel, context, route);
+	});
+	context.subscriptions.push(testEndpointCommand);
+}
+
+/**
+ * Find a route that matches the current file and cursor position
+ */
+function findRouteAtPosition(document: vscode.TextDocument, position: vscode.Position): LaravelRoute | null {
+	const filePath = document.uri.fsPath;
+	
+	// Check if this is a PHP file
+	if (!filePath.endsWith('.php')) {
+		if (outputChannel) {
+			outputChannel.appendLine(`[Lapi] Not a PHP file: ${filePath}`);
+			outputChannel.show(true);
+		}
+		return null;
+	}
+
+	const storage = getRouteStorage();
+	const routes = storage.getAll();
+
+	if (outputChannel) {
+		outputChannel.appendLine(`[Lapi] Looking for route in file: ${filePath}`);
+		outputChannel.appendLine(`[Lapi] Total routes loaded: ${routes.length}`);
+		outputChannel.show(true);
+	}
+
+	// Normalize the file path for comparison (lowercase for case-insensitive matching)
+	const normalizedFilePath = filePath.replace(/\\/g, '/').toLowerCase();
+
+	// Find routes that match this controller file
+	const matchingRoutes = routes.filter(route => {
+		if (!route.controllerPath) {
+			return false;
+		}
+		const normalizedControllerPath = route.controllerPath.replace(/\\/g, '/').toLowerCase();
+		const matches = normalizedFilePath === normalizedControllerPath || 
+			normalizedFilePath.endsWith(normalizedControllerPath) ||
+			normalizedControllerPath.endsWith(normalizedFilePath.split('/').slice(-4).join('/'));
+		
+		if (route.controllerPath && outputChannel) {
+			outputChannel.appendLine(`[Lapi] Comparing: ${normalizedFilePath} vs ${normalizedControllerPath} = ${matches}`);
+			outputChannel.show(true);
+		}
+		return matches;
+	});
+
+	if (outputChannel) {
+		outputChannel.appendLine(`[Lapi] Matching routes for file: ${matchingRoutes.length}`);
+		outputChannel.show(true);
+	}
+
+	if (matchingRoutes.length === 0) {
+		// Try matching by fully-qualified class name from the file content (namespace + class)
+		const documentText = document.getText();
+		const namespaceMatch = documentText.match(/namespace\s+([^;]+);/);
+		const classMatch = documentText.match(/class\s+(\w+)/);
+		if (namespaceMatch && classMatch) {
+			const namespace = namespaceMatch[1].trim();
+			const className = classMatch[1];
+			const fqcn = `${namespace}\\${className}`;
+			if (outputChannel) {
+				outputChannel.appendLine(`[Lapi] Trying FQCN match: ${fqcn}`);
+			}
+
+			const routesByFqcn = routes.filter(route => {
+				if (!route.controller) return false;
+				// route.controller contains strings like App\\Http\\Controllers\\MyController@method
+				return route.controller.startsWith(fqcn) || route.controller.includes(className);
+			});
+
+			if (outputChannel) {
+				outputChannel.appendLine(`[Lapi] Routes matching FQCN/class: ${routesByFqcn.length}`);
+				outputChannel.show(true);
+			}
+
+			if (routesByFqcn.length > 0) {
+				return findRouteByMethod(documentText, document.offsetAt(position), routesByFqcn);
+			}
+		}
+
+		// As a last resort, try matching any route whose controller contains the file name (class name)
+		const fileName = path.basename(filePath, '.php');
+		const routesByFileName = routes.filter(route => route.controller && route.controller.includes(fileName));
+		if (routesByFileName.length > 0) {
+			if (outputChannel) {
+				outputChannel.appendLine(`[Lapi] Routes matching by file name: ${routesByFileName.length}`);
+				outputChannel.show(true);
+			}
+			return findRouteByMethod(documentText, document.offsetAt(position), routesByFileName);
+		}
+
+		return null;
+	}
+
+	return findRouteByMethod(document.getText(), document.offsetAt(position), matchingRoutes);
+}
+
+/**
+ * Find which route matches the cursor position based on method
+ */
+function findRouteByMethod(documentText: string, cursorOffset: number, routes: LaravelRoute[]): LaravelRoute | null {
+	// Find the method that contains the cursor
+	for (const route of routes) {
+		if (!route.controllerMethod) {
+			continue;
+		}
+
+		const methodRange = findMethodRange(documentText, route.controllerMethod);
+		if (outputChannel) {
+			outputChannel.appendLine(`[Lapi] Method range for ${route.controllerMethod}: ${methodRange ? JSON.stringify(methodRange) : 'null'} cursor at: ${cursorOffset}`);
+			outputChannel.show(true);
+		}
+
+		if (methodRange && cursorOffset >= methodRange.start && cursorOffset <= methodRange.end) {
+			if (outputChannel) {
+				outputChannel.appendLine(`[Lapi] Found matching route: ${route.method} ${route.uri}`);
+				outputChannel.show(true);
+			}
+			return route;
+		}
+	}
+
+	// Fallback: try matching by controller method name across all routes
+	for (const route of getRouteStorage().getAll()) {
+		if (route.controllerMethod && route.controllerMethod === routes[0]?.controllerMethod) {
+			if (outputChannel) {
+				outputChannel.appendLine(`[Lapi] Fallback matched route by method name: ${route.method} ${route.uri}`);
+				outputChannel.show(true);
+			}
+			return route;
+		}
+	}
+
+	if (outputChannel) {
+		outputChannel.appendLine('[Lapi] No method matched cursor position');
+		outputChannel.show(true);
+	}
+	return null;
+}
+
+/**
+ * Find the start and end offset of a method in PHP code
+ */
+function findMethodRange(content: string, methodName: string): { start: number; end: number } | null {
+	// Match the method signature
+	const methodRegex = new RegExp(
+		`(?:public|protected|private)\\s+function\\s+${methodName}\\s*\\([^)]*\\)\\s*(?::\\s*[^{]+)?\\s*\\{`,
+		'g'
+	);
+
+	const match = methodRegex.exec(content);
+	if (!match) {
+		return null;
+	}
+
+	const methodStart = match.index;
+	const braceStart = match.index + match[0].length - 1;
+
+	// Find the matching closing brace
+	let braceCount = 1;
+	let i = braceStart + 1;
+
+	while (i < content.length && braceCount > 0) {
+		const char = content[i];
+		if (char === '{') {
+			braceCount++;
+		} else if (char === '}') {
+			braceCount--;
+		}
+		i++;
+	}
+
+	return { start: methodStart, end: i };
 }
 
 /**

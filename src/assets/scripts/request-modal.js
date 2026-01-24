@@ -57,6 +57,9 @@ function initRequestModal(config) {
 			} else {
 				stopServerPolling();
 			}
+		} else if (message.command === 'openModal') {
+			// Open modal from extension command (e.g., context menu)
+			openModal(message.method, message.uri, message.fields);
 		}
 	});
 	
