@@ -4,6 +4,21 @@ import type { LaravelRoute } from '../../types/routes';
 import { RoutesPanel } from '../../modules/routes/panel';
 import { RouteStorage, getRouteStorage } from '../../modules/routes/manager';
 
+// Helper to create a mock ExtensionContext for testing
+function createMockContext(): vscode.ExtensionContext {
+    const workspaceState = new Map<string, unknown>();
+    return {
+        workspaceState: {
+            get: <T>(key: string, defaultValue?: T) => (workspaceState.get(key) as T) ?? defaultValue,
+            update: (key: string, value: unknown) => {
+                workspaceState.set(key, value);
+                return Promise.resolve();
+            },
+            keys: () => Array.from(workspaceState.keys())
+        }
+    } as unknown as vscode.ExtensionContext;
+}
+
 suite('RoutesPanel Test Suite', () => {
     // Clean up after each test
     teardown(() => {
@@ -38,7 +53,8 @@ suite('RoutesPanel Test Suite', () => {
 
         const extensionUri = extension.extensionUri;
         const outputChannel = vscode.window.createOutputChannel('Lapi Test');
-        RoutesPanel.createOrShow(extensionUri, outputChannel);
+        const mockContext = createMockContext();
+        RoutesPanel.createOrShow(extensionUri, outputChannel, mockContext);
 
         assert.ok(RoutesPanel.currentPanel);
     });
@@ -54,11 +70,12 @@ suite('RoutesPanel Test Suite', () => {
 
         const extensionUri = extension.extensionUri;
         const outputChannel = vscode.window.createOutputChannel('Lapi Test');
+        const mockContext = createMockContext();
 
-        RoutesPanel.createOrShow(extensionUri, outputChannel);
+        RoutesPanel.createOrShow(extensionUri, outputChannel, mockContext);
         const firstPanel = RoutesPanel.currentPanel;
 
-        RoutesPanel.createOrShow(extensionUri, outputChannel);
+        RoutesPanel.createOrShow(extensionUri, outputChannel, mockContext);
         const secondPanel = RoutesPanel.currentPanel;
 
         assert.strictEqual(firstPanel, secondPanel);
@@ -75,8 +92,9 @@ suite('RoutesPanel Test Suite', () => {
 
         const extensionUri = extension.extensionUri;
         const outputChannel = vscode.window.createOutputChannel('Lapi Test');
+        const mockContext = createMockContext();
 
-        RoutesPanel.createOrShow(extensionUri, outputChannel);
+        RoutesPanel.createOrShow(extensionUri, outputChannel, mockContext);
         assert.ok(RoutesPanel.currentPanel);
 
         RoutesPanel.currentPanel.dispose();

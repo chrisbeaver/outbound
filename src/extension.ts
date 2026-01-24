@@ -30,7 +30,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register Display Routes Table command
 	const displayRoutesCommand = vscode.commands.registerCommand('lapi.displayRoutesTable', () => {
-		RoutesPanel.createOrShow(context.extensionUri, outputChannel);
+		RoutesPanel.createOrShow(context.extensionUri, outputChannel, context);
 	});
 	context.subscriptions.push(displayRoutesCommand);
 }

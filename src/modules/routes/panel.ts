@@ -3,6 +3,8 @@ import type { LaravelRoute } from '../../types/routes';
 import { getRouteStorage } from './manager';
 import { executeRequest } from '../api/request';
 
+const WORKSPACE_STATE_KEY = 'lapi.requestParams';
+
 /**
  * Manages the Routes Table webview panel
  */
@@ -12,9 +14,10 @@ export class RoutesPanel {
 
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _outputChannel: vscode.OutputChannel;
+	private readonly _context: vscode.ExtensionContext;
 	private _disposables: vscode.Disposable[] = [];
 
-	public static createOrShow(extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel) {
+	public static createOrShow(extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel, context: vscode.ExtensionContext) {
 		const column = vscode.window.activeTextEditor
 			? vscode.window.activeTextEditor.viewColumn
 			: undefined;
@@ -37,12 +40,13 @@ export class RoutesPanel {
 			}
 		);
 
-		RoutesPanel.currentPanel = new RoutesPanel(panel, extensionUri, outputChannel);
+		RoutesPanel.currentPanel = new RoutesPanel(panel, extensionUri, outputChannel, context);
 	}
 
-	private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel) {
+	private constructor(panel: vscode.WebviewPanel, extensionUri: vscode.Uri, outputChannel: vscode.OutputChannel, context: vscode.ExtensionContext) {
 		this._panel = panel;
 		this._outputChannel = outputChannel;
+		this._context = context;
 
 		// Set the webview's initial html content
 		this._update();
@@ -114,11 +118,36 @@ export class RoutesPanel {
 							this._outputChannel.show();
 						}
 					}
+				} else if (message.command === 'saveRequestParams') {
+					// Save user-edited params to workspace state
+					const { routeKey, params } = message;
+					await this._saveRequestParams(routeKey, params);
+				} else if (message.command === 'clearRequestParams') {
+					// Clear persisted params for a route (reset to defaults)
+					const { routeKey } = message;
+					await this._clearRequestParams(routeKey);
 				}
 			},
 			null,
 			this._disposables
 		);
+	}
+
+	private _getPersistedParams(routeKey: string): Record<string, unknown> | null {
+		const allParams = this._context.workspaceState.get<Record<string, Record<string, unknown>>>(WORKSPACE_STATE_KEY, {});
+		return allParams[routeKey] || null;
+	}
+
+	private async _saveRequestParams(routeKey: string, params: Record<string, unknown>): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Record<string, unknown>>>(WORKSPACE_STATE_KEY, {});
+		allParams[routeKey] = params;
+		await this._context.workspaceState.update(WORKSPACE_STATE_KEY, allParams);
+	}
+
+	private async _clearRequestParams(routeKey: string): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Record<string, unknown>>>(WORKSPACE_STATE_KEY, {});
+		delete allParams[routeKey];
+		await this._context.workspaceState.update(WORKSPACE_STATE_KEY, allParams);
 	}
 
 	public dispose() {
@@ -143,6 +172,8 @@ export class RoutesPanel {
 
 	private _getHtmlForWebview(webview: vscode.Webview): string {
 		const routes = getRouteStorage().getAll();
+		// Get all persisted params to pass to webview
+		const persistedParams = this._context.workspaceState.get<Record<string, Record<string, unknown>>>(WORKSPACE_STATE_KEY, {});
 
 		return `<!DOCTYPE html>
 <html lang="en">
@@ -475,6 +506,16 @@ export class RoutesPanel {
 			background-color: var(--vscode-button-secondaryHoverBackground);
 		}
 		
+		.modal-btn-danger {
+			background-color: var(--vscode-inputValidation-errorBackground);
+			color: var(--vscode-errorForeground);
+			border: 1px solid var(--vscode-inputValidation-errorBorder);
+		}
+		
+		.modal-btn-danger:hover {
+			opacity: 0.85;
+		}
+		
 		.copy-success {
 			color: var(--vscode-testing-iconPassed);
 			font-size: 12px;
@@ -484,6 +525,12 @@ export class RoutesPanel {
 		
 		.copy-success.show {
 			display: block;
+		}
+		
+		.persisted-indicator {
+			color: var(--vscode-textLink-foreground);
+			font-size: 11px;
+			margin-left: 8px;
 		}
 		
 		.no-routes {
@@ -534,6 +581,7 @@ export class RoutesPanel {
 			</div>
 			<div class="modal-footer">
 				<span class="copy-success" id="copy-success">✓ Copied to clipboard</span>
+				<button class="modal-btn modal-btn-danger" id="modal-reset" style="display: none;">Reset to Defaults</button>
 				<button class="modal-btn modal-btn-secondary" id="modal-copy">Copy JSON</button>
 				<button class="modal-btn modal-btn-secondary" id="modal-close-btn">Close</button>
 				<button class="modal-btn" id="modal-send">Send Request</button>
@@ -553,25 +601,52 @@ export class RoutesPanel {
 		const modalClose = document.getElementById('modal-close');
 		const modalCloseBtn = document.getElementById('modal-close-btn');
 		const modalSend = document.getElementById('modal-send');
+		const modalReset = document.getElementById('modal-reset');
 		
-		// State to track edited request params per route
-		const requestState = {};
+		// Persisted params from workspace state (loaded at init)
+		const persistedParams = ${JSON.stringify(persistedParams)};
+		
+		// In-memory state for current session edits (not yet saved)
+		const sessionState = {};
+		
+		// Default values from route definitions (rebuilt on refresh)
+		const routeDefaults = {};
+		
 		let currentRouteKey = null;
+		let currentRouteFields = null;
+		let hasPersistedState = false;
+		
 		const modalCopy = document.getElementById('modal-copy');
 		const copySuccess = document.getElementById('copy-success');
 		const jsonError = document.getElementById('json-error');
 		
 		// Submit request function
 		function submitRequest(method, uri, bodyParams) {
-			const routeKey = method + ' ' + uri;
-			const params = bodyParams || requestState[routeKey] || {};
-			
 			vscode.postMessage({
 				command: 'executeRequest',
 				method: method,
 				uri: uri,
-				bodyParams: params
+				bodyParams: bodyParams
 			});
+		}
+		
+		// Save params to workspace state
+		function persistParams(routeKey, params) {
+			vscode.postMessage({
+				command: 'saveRequestParams',
+				routeKey: routeKey,
+				params: params
+			});
+			persistedParams[routeKey] = params;
+		}
+		
+		// Clear persisted params
+		function clearPersistedParams(routeKey) {
+			vscode.postMessage({
+				command: 'clearRequestParams',
+				routeKey: routeKey
+			});
+			delete persistedParams[routeKey];
 		}
 		
 		// Search functionality
@@ -713,30 +788,66 @@ export class RoutesPanel {
 			return result;
 		}
 		
+		// Build defaults object from fields
+		function buildDefaults(fields) {
+			const defaults = {};
+			for (const field of fields) {
+				defaults[field.key] = field.value;
+			}
+			return defaults;
+		}
+		
+		// Check if current values differ from defaults
+		function hasChanges() {
+			if (!currentRouteKey || !routeDefaults[currentRouteKey]) return false;
+			const current = getFormJson();
+			const defaults = routeDefaults[currentRouteKey];
+			return JSON.stringify(current) !== JSON.stringify(defaults);
+		}
+		
 		// Modal functionality
 		function openModal(method, uri, fieldsJson) {
 			currentRouteKey = method + ' ' + uri;
 			
 			// Parse fields and build form
 			const fields = JSON.parse(fieldsJson);
+			currentRouteFields = fields;
 			modalForm.innerHTML = '';
+			
+			// Store defaults for this route
+			routeDefaults[currentRouteKey] = buildDefaults(fields);
+			
+			// Check if we have persisted state for this route
+			const persisted = persistedParams[currentRouteKey];
+			hasPersistedState = !!persisted;
 			
 			// Update title with param count
 			const paramCount = fields.length;
-			modalTitle.textContent = paramCount > 0 
+			let titleText = paramCount > 0 
 				? 'Request Body (' + paramCount + ' param' + (paramCount !== 1 ? 's' : '') + ')'
 				: 'Request Body';
+			
+			if (hasPersistedState) {
+				titleText += ' <span class="persisted-indicator">● saved</span>';
+			}
+			
+			modalTitle.innerHTML = titleText;
 			modalSubtitle.textContent = method + ' ' + uri;
+			
+			// Show/hide reset button
+			modalReset.style.display = hasPersistedState ? 'inline-block' : 'none';
 			
 			if (fields.length === 0) {
 				modalForm.innerHTML = '<div style="color: var(--vscode-descriptionForeground); font-style: italic;">No request parameters</div>';
 			} else {
-				// Get saved state or use defaults
-				const savedState = requestState[currentRouteKey] || {};
-				
 				for (const field of fields) {
-					// Use saved value if exists, otherwise use default
-					const value = savedState.hasOwnProperty(field.key) ? savedState[field.key] : field.value;
+					// Priority: persisted > session > default
+					let value = field.value;
+					if (persisted && persisted.hasOwnProperty(field.key)) {
+						value = persisted[field.key];
+					} else if (sessionState[currentRouteKey] && sessionState[currentRouteKey].hasOwnProperty(field.key)) {
+						value = sessionState[currentRouteKey][field.key];
+					}
 					const fieldEl = createField(field.key, value, field.type);
 					modalForm.appendChild(fieldEl);
 				}
@@ -749,8 +860,15 @@ export class RoutesPanel {
 		
 		// Save form state when closing modal
 		function saveFormState() {
-			if (currentRouteKey) {
-				requestState[currentRouteKey] = getFormJson();
+			if (currentRouteKey && currentRouteFields && currentRouteFields.length > 0) {
+				const currentValues = getFormJson();
+				sessionState[currentRouteKey] = currentValues;
+				
+				// If values differ from defaults, persist to workspace state
+				if (hasChanges()) {
+					persistParams(currentRouteKey, currentValues);
+					hasPersistedState = true;
+				}
 			}
 		}
 		
@@ -759,9 +877,39 @@ export class RoutesPanel {
 			modalOverlay.classList.remove('active');
 		}
 		
+		// Reset to defaults
+		function resetToDefaults() {
+			if (!currentRouteKey || !currentRouteFields) return;
+			
+			// Clear persisted state
+			clearPersistedParams(currentRouteKey);
+			delete sessionState[currentRouteKey];
+			hasPersistedState = false;
+			
+			// Rebuild form with defaults
+			modalForm.innerHTML = '';
+			for (const field of currentRouteFields) {
+				const fieldEl = createField(field.key, field.value, field.type);
+				modalForm.appendChild(fieldEl);
+			}
+			
+			// Update title to remove saved indicator
+			const paramCount = currentRouteFields.length;
+			modalTitle.innerHTML = paramCount > 0 
+				? 'Request Body (' + paramCount + ' param' + (paramCount !== 1 ? 's' : '') + ')'
+				: 'Request Body';
+			
+			// Hide reset button
+			modalReset.style.display = 'none';
+			
+			copySuccess.classList.remove('show');
+			jsonError.classList.remove('show');
+		}
+		
 		// Event listeners
 		modalClose.addEventListener('click', closeModal);
 		modalCloseBtn.addEventListener('click', closeModal);
+		modalReset.addEventListener('click', resetToDefaults);
 		modalOverlay.addEventListener('click', function(e) {
 			if (e.target === modalOverlay) {
 				closeModal();
