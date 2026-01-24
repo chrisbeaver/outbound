@@ -1,0 +1,149 @@
+/* Routes table styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+th {
+    background-color: var(--vscode-editor-lineHighlightBackground);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+tr:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+/* HTTP method badges */
+.method {
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: inline-block;
+    min-width: 60px;
+    text-align: center;
+}
+
+.method-get {
+    background-color: #61affe33;
+    color: #61affe;
+}
+
+.method-post {
+    background-color: #49cc9033;
+    color: #49cc90;
+}
+
+.method-put {
+    background-color: #fca13033;
+    color: #fca130;
+}
+
+.method-patch {
+    background-color: #50e3c233;
+    color: #50e3c2;
+}
+
+.method-delete {
+    background-color: #f93e3e33;
+    color: #f93e3e;
+}
+
+.method-head {
+    background-color: #9012fe33;
+    color: #9012fe;
+}
+
+.method-options {
+    background-color: #0d5aa733;
+    color: #0d5aa7;
+}
+
+/* Route info columns */
+.uri {
+    font-family: var(--vscode-editor-font-family);
+    color: var(--vscode-textLink-foreground);
+}
+
+.controller {
+    font-family: var(--vscode-editor-font-family);
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.name {
+    font-style: italic;
+    color: var(--vscode-descriptionForeground);
+}
+
+/* Submit buttons with method colors */
+.submit-btn {
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    font-family: var(--vscode-font-family);
+    min-width: 70px;
+}
+
+.submit-btn:hover {
+    opacity: 0.85;
+}
+
+.submit-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.submit-btn-get {
+    background-color: #61affe;
+    color: #fff;
+}
+
+.submit-btn-post {
+    background-color: #49cc90;
+    color: #fff;
+}
+
+.submit-btn-put {
+    background-color: #fca130;
+    color: #fff;
+}
+
+.submit-btn-patch {
+    background-color: #50e3c2;
+    color: #fff;
+}
+
+.submit-btn-delete {
+    background-color: #f93e3e;
+    color: #fff;
+}
+
+.submit-btn-head {
+    background-color: #9012fe;
+    color: #fff;
+}
+
+.submit-btn-options {
+    background-color: #0d5aa7;
+    color: #fff;
+}
+
+.request-empty {
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+    font-size: 12px;
+}
