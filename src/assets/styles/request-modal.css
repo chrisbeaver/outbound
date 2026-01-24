@@ -94,8 +94,13 @@
     font-family: var(--vscode-font-family);
 }
 
-.modal-btn:hover {
+.modal-btn:hover:not(:disabled) {
     background-color: var(--vscode-button-hoverBackground);
+}
+
+.modal-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .modal-btn-secondary {
