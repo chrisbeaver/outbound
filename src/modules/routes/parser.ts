@@ -15,6 +15,7 @@ import { getRouteStorage } from './manager';
  */
 export class RouteParser {
 	private workspacePath: string;
+	private formRequestCache: Map<string, ParsedValidation | null> = new Map();
 
 	constructor(workspacePath: string) {
 		this.workspacePath = workspacePath;
@@ -135,29 +136,38 @@ export class RouteParser {
 	): Promise<ParsedValidation | null> {
 		try {
 			if (!fs.existsSync(controllerPath)) {
+				console.log(`[Parser] Controller file not found: ${controllerPath}`);
 				return null;
 			}
 
 			const content = fs.readFileSync(controllerPath, 'utf-8');
+			console.log(`[Parser] Reading controller: ${controllerPath}, method: ${methodName}`);
 
 			// Find the method in the controller
 			const methodContent = this.extractMethodContent(content, methodName);
 			if (!methodContent) {
+				console.log(`[Parser] Method ${methodName} not found in controller`);
 				return null;
 			}
+			console.log(`[Parser] Found method ${methodName}, length: ${methodContent.length}`);
 
 			// Check for Form Request injection
 			const formRequestMatch = this.findFormRequestInjection(content, methodName);
+			console.log(`[Parser] Form Request match: ${formRequestMatch}`);
 			if (formRequestMatch) {
-				return await this.parseFormRequest(formRequestMatch);
+				const result = await this.parseFormRequest(formRequestMatch);
+				console.log(`[Parser] Parsed Form Request result: ${result?.params?.length || 0} params`);
+				return result;
 			}
 
 			// Check for inline validation ($request->validate(...) or Validator::make(...))
 			const inlineValidation = this.parseInlineValidation(methodContent);
 			if (inlineValidation) {
+				console.log(`[Parser] Found inline validation: ${inlineValidation.params.length} params`);
 				return inlineValidation;
 			}
 
+			console.log(`[Parser] No validation found for ${methodName}`);
 			return null;
 		} catch (error) {
 			console.error(`Error parsing controller ${controllerPath}:`, error);
@@ -170,14 +180,40 @@ export class RouteParser {
 	 */
 	private extractMethodContent(classContent: string, methodName: string): string | null {
 		// Match public/protected/private function methodName(...) { ... }
+		// Use [\s\S] instead of [^)]* to handle multiline parameters
 		const methodRegex = new RegExp(
-			`(?:public|protected|private)\\s+function\\s+${methodName}\\s*\\([^)]*\\)\\s*(?::\\s*\\S+)?\\s*\\{`,
+			`(?:public|protected|private)\\s+function\\s+${methodName}\\s*\\(([\\s\\S]*?)\\)\\s*(?::\\s*\\S+)?\\s*(?:\\/\\/[^\\n]*)?\\s*\\{`,
 			'g'
 		);
 
 		const match = methodRegex.exec(classContent);
 		if (!match) {
-			return null;
+			// Try simpler regex as fallback
+			const simpleRegex = new RegExp(
+				`function\\s+${methodName}\\s*\\([^{]*\\{`,
+				'g'
+			);
+			const simpleMatch = simpleRegex.exec(classContent);
+			if (!simpleMatch) {
+				return null;
+			}
+			
+			// Find the matching closing brace
+			const startIndex = simpleMatch.index + simpleMatch[0].length;
+			let braceCount = 1;
+			let endIndex = startIndex;
+
+			while (braceCount > 0 && endIndex < classContent.length) {
+				const char = classContent[endIndex];
+				if (char === '{') {
+					braceCount++;
+				} else if (char === '}') {
+					braceCount--;
+				}
+				endIndex++;
+			}
+
+			return classContent.substring(simpleMatch.index, endIndex);
 		}
 
 		// Find the matching closing brace
@@ -210,19 +246,23 @@ export class RouteParser {
 
 		const match = methodRegex.exec(classContent);
 		if (!match) {
+			console.log(`[Parser] Method ${methodName} not found in controller`);
 			return null;
 		}
 
 		const params = match[1];
+		console.log(`[Parser] Method ${methodName} params: ${params}`);
 		
 		// Look for Form Request type hints (anything ending in Request but not just "Request")
 		const formRequestRegex = /(\w+Request)\s+\$\w+/g;
 		const formRequestMatch = formRequestRegex.exec(params);
 
 		if (formRequestMatch && formRequestMatch[1] !== 'Request') {
+			console.log(`[Parser] Found Form Request: ${formRequestMatch[1]}`);
 			return formRequestMatch[1];
 		}
 
+		console.log(`[Parser] No Form Request found in method ${methodName}`);
 		return null;
 	}
 
@@ -230,46 +270,57 @@ export class RouteParser {
 	 * Parse a Laravel Form Request class
 	 */
 	private async parseFormRequest(formRequestClass: string): Promise<ParsedValidation | null> {
-		// Try to find the Form Request file
-		const possiblePaths = [
-			`app/Http/Requests/${formRequestClass}.php`,
-			`app/Http/Requests/**/${formRequestClass}.php`
-		];
-
-		for (const relativePath of possiblePaths) {
-			const fullPath = path.join(this.workspacePath, relativePath);
-			
-			if (fs.existsSync(fullPath)) {
-				const content = fs.readFileSync(fullPath, 'utf-8');
-				const rules = this.extractRulesFromFormRequest(content);
-
-				return {
-					source: 'form-request',
-					formRequestClass,
-					formRequestPath: fullPath,
-					params: this.parseValidationRules(rules)
-				};
-			}
+		// Check cache first
+		if (this.formRequestCache.has(formRequestClass)) {
+			console.log(`[Parser] Using cached result for ${formRequestClass}`);
+			return this.formRequestCache.get(formRequestClass) || null;
 		}
 
-		// Try glob search for the Form Request
+		console.log(`[Parser] Looking for Form Request: ${formRequestClass}`);
+
+		// Try to find the Form Request file - direct path first
+		const directPath = path.join(this.workspacePath, `app/Http/Requests/${formRequestClass}.php`);
+		
+		if (fs.existsSync(directPath)) {
+			console.log(`[Parser] Found at direct path: ${directPath}`);
+			const content = fs.readFileSync(directPath, 'utf-8');
+			const rules = this.extractRulesFromFormRequest(content);
+			const result: ParsedValidation = {
+				source: 'form-request',
+				formRequestClass,
+				formRequestPath: directPath,
+				params: this.parseValidationRules(rules)
+			};
+			this.formRequestCache.set(formRequestClass, result);
+			return result;
+		}
+
+		// Try glob search for the Form Request in subdirectories
+		console.log(`[Parser] Searching with glob for ${formRequestClass}`);
 		const files = await vscode.workspace.findFiles(
 			`**/Http/Requests/**/${formRequestClass}.php`,
 			'**/vendor/**'
 		);
 
+		console.log(`[Parser] Found ${files.length} files for ${formRequestClass}`);
+		
 		if (files.length > 0) {
+			console.log(`[Parser] Using file: ${files[0].fsPath}`);
 			const content = fs.readFileSync(files[0].fsPath, 'utf-8');
 			const rules = this.extractRulesFromFormRequest(content);
 
-			return {
+			const result: ParsedValidation = {
 				source: 'form-request',
 				formRequestClass,
 				formRequestPath: files[0].fsPath,
 				params: this.parseValidationRules(rules)
 			};
+			this.formRequestCache.set(formRequestClass, result);
+			return result;
 		}
 
+		console.log(`[Parser] Form Request ${formRequestClass} not found`);
+		this.formRequestCache.set(formRequestClass, null);
 		return null;
 	}
 

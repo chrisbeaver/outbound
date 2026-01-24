@@ -65,7 +65,7 @@ export class RoutesPanel {
 		this._panel.webview.onDidReceiveMessage(
 			async (message) => {
 				if (message.command === 'executeRequest') {
-					const { method, uri } = message;
+					const { method, uri, bodyParams } = message;
 					const route = getRouteStorage().get(method, uri);
 					
 					if (route) {
@@ -73,8 +73,21 @@ export class RoutesPanel {
 						this._outputChannel.appendLine(`=== API Request: ${method} ${uri} ===`);
 						this._outputChannel.appendLine('');
 						
+						// Debug: log route info
+						this._outputChannel.appendLine(`Route has ${route.requestParams?.length || 0} request params`);
+						if (route.requestParams) {
+							for (const param of route.requestParams) {
+								this._outputChannel.appendLine(`  - ${param.name} (${param.type}) isPathParam=${param.isPathParam}`);
+							}
+						}
+						this._outputChannel.appendLine('');
+						
 						try {
-							const response = await executeRequest(route);
+							// Pass bodyParams from the edited form
+							const options = bodyParams && Object.keys(bodyParams).length > 0 
+								? { bodyParams } 
+								: {};
+							const response = await executeRequest(route, options);
 							
 							this._outputChannel.appendLine(`Status: ${response.statusCode} ${response.success ? '✓' : '✗'}`);
 							this._outputChannel.appendLine(`Duration: ${response.duration}ms`);
@@ -360,17 +373,74 @@ export class RoutesPanel {
 			flex: 1;
 		}
 		
-		.modal-json {
-			background-color: var(--vscode-textBlockQuote-background);
-			border: 1px solid var(--vscode-widget-border);
+		.modal-form {
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+		}
+		
+		.form-field {
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+		}
+		
+		.form-field label {
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--vscode-foreground);
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+		
+		.form-field .field-type {
+			font-weight: normal;
+			color: var(--vscode-descriptionForeground);
+			font-size: 11px;
+		}
+		
+		.form-field input,
+		.form-field select {
+			padding: 6px 10px;
+			border: 1px solid var(--vscode-input-border);
+			background-color: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
 			border-radius: 4px;
-			padding: 16px;
-			font-family: var(--vscode-editor-font-family);
 			font-size: 13px;
-			white-space: pre-wrap;
-			word-break: break-all;
-			margin: 0;
-			line-height: 1.5;
+			font-family: var(--vscode-editor-font-family);
+		}
+		
+		.form-field input:focus,
+		.form-field select:focus {
+			outline: 1px solid var(--vscode-focusBorder);
+			border-color: var(--vscode-focusBorder);
+		}
+		
+		.form-field input.invalid {
+			border-color: var(--vscode-inputValidation-errorBorder);
+			background-color: var(--vscode-inputValidation-errorBackground);
+		}
+		
+		.form-field .field-error {
+			color: var(--vscode-errorForeground);
+			font-size: 11px;
+			display: none;
+		}
+		
+		.form-field .field-error.show {
+			display: block;
+		}
+		
+		.json-error {
+			color: var(--vscode-errorForeground);
+			font-size: 12px;
+			margin-top: 8px;
+			display: none;
+		}
+		
+		.json-error.show {
+			display: block;
 		}
 		
 		.modal-footer {
@@ -460,12 +530,14 @@ export class RoutesPanel {
 				<button class="modal-close" id="modal-close">&times;</button>
 			</div>
 			<div class="modal-body">
-				<pre class="modal-json" id="modal-json"></pre>
+				<div class="modal-form" id="modal-form"></div>
+				<div class="json-error" id="json-error"></div>
 			</div>
 			<div class="modal-footer">
 				<span class="copy-success" id="copy-success">✓ Copied to clipboard</span>
 				<button class="modal-btn modal-btn-secondary" id="modal-copy">Copy JSON</button>
-				<button class="modal-btn" id="modal-close-btn">Close</button>
+				<button class="modal-btn modal-btn-secondary" id="modal-close-btn">Close</button>
+				<button class="modal-btn" id="modal-send">Send Request</button>
 			</div>
 		</div>
 	</div>
@@ -478,18 +550,28 @@ export class RoutesPanel {
 		const modalOverlay = document.getElementById('modal-overlay');
 		const modalTitle = document.getElementById('modal-title');
 		const modalSubtitle = document.getElementById('modal-subtitle');
-		const modalJson = document.getElementById('modal-json');
+		const modalForm = document.getElementById('modal-form');
 		const modalClose = document.getElementById('modal-close');
 		const modalCloseBtn = document.getElementById('modal-close-btn');
+		const modalSend = document.getElementById('modal-send');
+		
+		// State to track edited request params per route
+		const requestState = {};
+		let currentRouteKey = null;
 		const modalCopy = document.getElementById('modal-copy');
 		const copySuccess = document.getElementById('copy-success');
+		const jsonError = document.getElementById('json-error');
 		
 		// Submit request function
-		function submitRequest(method, uri) {
+		function submitRequest(method, uri, bodyParams) {
+			const routeKey = method + ' ' + uri;
+			const params = bodyParams || requestState[routeKey] || {};
+			
 			vscode.postMessage({
 				command: 'executeRequest',
 				method: method,
-				uri: uri
+				uri: uri,
+				bodyParams: params
 			});
 		}
 		
@@ -506,16 +588,166 @@ export class RoutesPanel {
 			});
 		}
 		
+		// Create input field based on type
+		function createField(key, value, type) {
+			const div = document.createElement('div');
+			div.className = 'form-field';
+			
+			const label = document.createElement('label');
+			label.innerHTML = key + ' <span class="field-type">(' + type + ')</span>';
+			div.appendChild(label);
+			
+			let input;
+			
+			if (type === 'boolean') {
+				input = document.createElement('select');
+				input.innerHTML = '<option value="true">true</option><option value="false">false</option>';
+				input.value = String(value);
+			} else {
+				input = document.createElement('input');
+				input.type = 'text';
+				
+				// Set appropriate value based on type
+				if (type === 'array' || type === 'object') {
+					input.value = JSON.stringify(value);
+				} else {
+					input.value = value;
+				}
+			}
+			
+			input.dataset.key = key;
+			input.dataset.type = type;
+			input.addEventListener('input', validateField);
+			div.appendChild(input);
+			
+			const errorSpan = document.createElement('span');
+			errorSpan.className = 'field-error';
+			div.appendChild(errorSpan);
+			
+			return div;
+		}
+		
+		// Validate a single field
+		function validateField(e) {
+			const input = e.target;
+			const type = input.dataset.type;
+			const value = input.value;
+			const errorSpan = input.nextElementSibling;
+			
+			let error = '';
+			
+			if (type === 'integer') {
+				if (!/^-?\d+$/.test(value)) {
+					error = 'Must be an integer';
+				}
+			} else if (type === 'number') {
+				if (isNaN(parseFloat(value))) {
+					error = 'Must be a number';
+				}
+			} else if (type === 'array') {
+				try {
+					const parsed = JSON.parse(value);
+					if (!Array.isArray(parsed)) {
+						error = 'Must be a valid JSON array';
+					}
+				} catch {
+					error = 'Must be valid JSON';
+				}
+			} else if (type === 'object') {
+				try {
+					const parsed = JSON.parse(value);
+					if (typeof parsed !== 'object' || Array.isArray(parsed)) {
+						error = 'Must be a valid JSON object';
+					}
+				} catch {
+					error = 'Must be valid JSON';
+				}
+			} else if (type === 'email') {
+				if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+					error = 'Must be a valid email';
+				}
+			} else if (type === 'url') {
+				try {
+					new URL(value);
+				} catch {
+					error = 'Must be a valid URL';
+				}
+			}
+			
+			if (error) {
+				input.classList.add('invalid');
+				errorSpan.textContent = error;
+				errorSpan.classList.add('show');
+			} else {
+				input.classList.remove('invalid');
+				errorSpan.classList.remove('show');
+			}
+		}
+		
+		// Get current JSON from form
+		function getFormJson() {
+			const result = {};
+			const inputs = modalForm.querySelectorAll('input, select');
+			
+			for (const input of inputs) {
+				const key = input.dataset.key;
+				const type = input.dataset.type;
+				const value = input.value;
+				
+				if (type === 'integer') {
+					result[key] = parseInt(value, 10) || 0;
+				} else if (type === 'number') {
+					result[key] = parseFloat(value) || 0;
+				} else if (type === 'boolean') {
+					result[key] = value === 'true';
+				} else if (type === 'array' || type === 'object') {
+					try {
+						result[key] = JSON.parse(value);
+					} catch {
+						result[key] = type === 'array' ? [] : {};
+					}
+				} else {
+					result[key] = value;
+				}
+			}
+			
+			return result;
+		}
+		
 		// Modal functionality
-		function openModal(method, uri, json) {
+		function openModal(method, uri, fieldsJson) {
 			modalTitle.textContent = 'Request Body';
 			modalSubtitle.textContent = method + ' ' + uri;
-			modalJson.textContent = json;
+			currentRouteKey = method + ' ' + uri;
+			
+			// Parse fields and build form
+			const fields = JSON.parse(fieldsJson);
+			modalForm.innerHTML = '';
+			
+			// Get saved state or use defaults
+			const savedState = requestState[currentRouteKey] || {};
+			
+			for (const field of fields) {
+				// Use saved value if exists, otherwise use default
+				const value = savedState.hasOwnProperty(field.key) ? savedState[field.key] : field.value;
+				const fieldEl = createField(field.key, value, field.type);
+				modalForm.appendChild(fieldEl);
+			}
+			
 			modalOverlay.classList.add('active');
 			copySuccess.classList.remove('show');
+			jsonError.classList.remove('show');
+		}
+		
+		// Save form state when closing modal
+		function saveFormState() {
+			if (currentRouteKey) {
+				requestState[currentRouteKey] = getFormJson();
+			}
 		}
 		
 		function closeModal() {
+			saveFormState();
 			modalOverlay.classList.remove('active');
 		}
 		
@@ -528,10 +760,41 @@ export class RoutesPanel {
 			}
 		});
 		
+		// Send request from modal
+		modalSend.addEventListener('click', function() {
+			// Check for validation errors
+			const invalidFields = modalForm.querySelectorAll('input.invalid');
+			if (invalidFields.length > 0) {
+				jsonError.textContent = 'Please fix validation errors before sending';
+				jsonError.classList.add('show');
+				return;
+			}
+			
+			const bodyParams = getFormJson();
+			saveFormState();
+			
+			// Extract method and uri from current route key
+			const [method, ...uriParts] = currentRouteKey.split(' ');
+			const uri = uriParts.join(' ');
+			
+			submitRequest(method, uri, bodyParams);
+			closeModal();
+		});
+		
 		// Copy functionality
 		modalCopy.addEventListener('click', function() {
-			navigator.clipboard.writeText(modalJson.textContent).then(function() {
+			// Check for validation errors
+			const invalidFields = modalForm.querySelectorAll('input.invalid');
+			if (invalidFields.length > 0) {
+				jsonError.textContent = 'Please fix validation errors before copying';
+				jsonError.classList.add('show');
+				return;
+			}
+			
+			const json = JSON.stringify(getFormJson(), null, 2);
+			navigator.clipboard.writeText(json).then(function() {
 				copySuccess.classList.add('show');
+				jsonError.classList.remove('show');
 				setTimeout(function() {
 					copySuccess.classList.remove('show');
 				}, 2000);
@@ -574,28 +837,31 @@ export class RoutesPanel {
 			return '<span class="request-empty">-</span>';
 		}
 
-		// Build a JSON object from the request parameters
-		const requestObj: Record<string, unknown> = {};
+		// Build field metadata for the editable form
+		const fields: Array<{key: string, value: unknown, type: string}> = [];
 
 		for (const param of route.requestParams) {
 			if (param.isPathParam) {
 				continue; // Skip path params, they're shown in the URI
 			}
-			requestObj[param.name] = this._getExampleValue(param);
+			fields.push({
+				key: param.name,
+				value: this._getExampleValue(param),
+				type: param.type || 'string'
+			});
 		}
 
-		if (Object.keys(requestObj).length === 0) {
+		if (fields.length === 0) {
 			return '<span class="request-empty">-</span>';
 		}
 
-		const json = JSON.stringify(requestObj, null, 2);
-		const escapedJson = this._escapeHtml(json).replace(/'/g, "\\'").replace(/\n/g, '\\n');
+		const fieldsJson = JSON.stringify(fields).replace(/'/g, "\\'").replace(/"/g, '&quot;');
 		const method = this._escapeHtml(route.method);
 		const uri = this._escapeHtml(route.uri);
-		const paramCount = Object.keys(requestObj).length;
+		const paramCount = fields.length;
 		
-		return `<button class="request-btn" onclick="openModal('${method}', '${uri}', '${escapedJson}')">
-			View (${paramCount} param${paramCount !== 1 ? 's' : ''})
+		return `<button class="request-btn" onclick="openModal('${method}', '${uri}', '${fieldsJson}')">
+			Edit (${paramCount} param${paramCount !== 1 ? 's' : ''})
 		</button>`;
 	}
 

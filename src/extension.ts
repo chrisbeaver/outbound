@@ -41,6 +41,7 @@ export async function activate(context: vscode.ExtensionContext) {
 async function parseRouteValidation(outputChannel: vscode.OutputChannel): Promise<void> {
 	const parser = createRouteParser();
 	if (!parser) {
+		outputChannel.appendLine('No parser available (no workspace folder?)');
 		return;
 	}
 
@@ -48,29 +49,36 @@ async function parseRouteValidation(outputChannel: vscode.OutputChannel): Promis
 	const routes = storage.getAll();
 
 	if (routes.length === 0) {
+		outputChannel.appendLine('No routes to parse');
 		return;
 	}
 
 	outputChannel.appendLine('');
 	outputChannel.appendLine('=== Parsing Route Validation ===');
+	outputChannel.appendLine(`Total routes to parse: ${routes.length}`);
 	outputChannel.appendLine('');
 
 	let parsedCount = 0;
 
 	for (const route of routes) {
 		try {
+			outputChannel.appendLine(`Parsing: ${route.method} ${route.uri} (${route.controller || 'Closure'})`);
 			const parsedRoute = await parser.parseRoute(route);
 
 			// Update the route in storage with parsed information
 			storage.add(parsedRoute);
 
-			if (parsedRoute.requestParams && parsedRoute.requestParams.length > 0) {
+			const paramCount = parsedRoute.requestParams?.length || 0;
+			outputChannel.appendLine(`  → Found ${paramCount} params`);
+
+			if (paramCount > 0) {
 				parsedCount++;
-				outputChannel.appendLine(
-					`${route.method.padEnd(10)} ${route.uri.padEnd(40)} → ${parsedRoute.requestParams.length} params`
-				);
+				for (const param of parsedRoute.requestParams!) {
+					outputChannel.appendLine(`    - ${param.name} (${param.type}) ${param.isPathParam ? '[path]' : ''}`);
+				}
 			}
 		} catch (error) {
+			outputChannel.appendLine(`  → Error: ${error}`);
 			console.error(`Error parsing route ${route.uri}:`, error);
 		}
 	}
