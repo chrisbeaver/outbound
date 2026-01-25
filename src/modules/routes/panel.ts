@@ -293,6 +293,11 @@ export class RoutesPanel {
 						command: 'curlResult',
 						curl
 					});
+				} else if (message.command === 'openExtensionSettings') {
+					// Open extension settings in workspace scope
+					vscode.commands.executeCommand('workbench.action.openWorkspaceSettings', {
+						query: 'lapi'
+					});
 				}
 			},
 			null,

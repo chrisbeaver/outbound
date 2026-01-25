@@ -13,6 +13,14 @@
 function initRoutesTable() {
 	// Initialize search
 	initTableSearch('search', 'routes-table');
+	
+	// Settings button - open extension workspace settings
+	const settingsBtn = document.getElementById('header-settings-btn');
+	if (settingsBtn) {
+		settingsBtn.addEventListener('click', function() {
+			vscode.postMessage({ command: 'openExtensionSettings' });
+		});
+	}
 }
 
 // Auto-initialize when DOM is ready
