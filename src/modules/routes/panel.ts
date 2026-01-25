@@ -3,7 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { LaravelRoute } from '../../types/routes';
 import { getRouteStorage } from './manager';
-import { executeRequest, checkServerStatus } from '../api/request';
+import { executeRequest, checkServerStatus, getApiHost } from '../api/request';
+import { buildCurlCommand } from '../api/curl-builder';
 
 const WORKSPACE_STATE_KEY = 'lapi.requestParams';
 const PATH_PARAMS_STATE_KEY = 'lapi.pathParams';
@@ -273,6 +274,25 @@ export class RoutesPanel {
 					// Clear query params for a route
 					const { routeKey } = message;
 					await this._clearQueryParams(routeKey);
+				} else if (message.command === 'buildCurl') {
+					// Build cURL command
+					const { method, uri, bodyParams, queryParams, bearerToken, disabledParams } = message;
+					const host = getApiHost();
+					const url = `${host.replace(/\/$/, '')}/${uri.replace(/^\//, '')}`;
+					
+					const curl = buildCurlCommand({
+						method,
+						url,
+						bodyParams,
+						queryParams,
+						bearerToken: bearerToken || undefined,
+						disabledParams
+					});
+					
+					this._panel.webview.postMessage({
+						command: 'curlResult',
+						curl
+					});
 				}
 			},
 			null,

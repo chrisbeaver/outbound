@@ -59,6 +59,7 @@ function initRequestModal(config) {
 	const modalSend = document.getElementById('modal-send');
 	const modalReset = document.getElementById('modal-reset');
 	const modalCopy = document.getElementById('modal-copy');
+	const modalCopyCurl = document.getElementById('modal-copy-curl');
 	const copySuccess = document.getElementById('copy-success');
 	const jsonError = document.getElementById('json-error');
 	const serverStatusLight = document.getElementById('server-status-light');
@@ -96,6 +97,17 @@ function initRequestModal(config) {
 		} else if (message.command === 'openModal') {
 			// Open modal from extension command (e.g., context menu)
 			openModal(message.method, message.uri, message.fields, message.defaultQueryParams);
+		} else if (message.command === 'curlResult') {
+			// Copy cURL command to clipboard
+			navigator.clipboard.writeText(message.curl).then(function() {
+				copySuccess.textContent = '✓ cURL copied to clipboard';
+				copySuccess.classList.add('show');
+				jsonError.classList.remove('show');
+				setTimeout(function() {
+					copySuccess.classList.remove('show');
+					copySuccess.textContent = '✓ Copied to clipboard';
+				}, 2000);
+			});
 		}
 	});
 	
@@ -997,6 +1009,61 @@ function initRequestModal(config) {
 			setTimeout(function() {
 				copySuccess.classList.remove('show');
 			}, 2000);
+		});
+	});
+	
+	// Copy cURL functionality
+	modalCopyCurl.addEventListener('click', function() {
+		// Build the cURL command from current form state
+		const bodyParams = getFormJson(modalForm);
+		
+		// Add custom params (only enabled ones)
+		const customParams = getCurrentCustomParams();
+		for (const param of customParams) {
+			if (param.enabled !== false) {
+				bodyParams[param.key] = param.value;
+			}
+		}
+		
+		// Get path params
+		const pathParams = getFormJson(uriSegmentsForm);
+		
+		// Get disabled field params
+		const disabledParams = getDisabledParams(modalForm);
+		
+		// Get query params
+		const queryParams = getCurrentQueryParams();
+		
+		// Get bearer token (value, not name)
+		const authSelect = document.getElementById('modal-auth-select');
+		const selectedTokenName = authSelect ? authSelect.value : '';
+		const bearerToken = selectedTokenName && typeof window.getBearerTokenByName === 'function'
+			? window.getBearerTokenByName(selectedTokenName)
+			: '';
+		
+		// Extract method and uri from current route key
+		const [method, ...uriParts] = currentRouteKey.split(' ');
+		let uri = uriParts.join(' ');
+		
+		// Replace path parameters in URI
+		for (const [key, value] of Object.entries(pathParams)) {
+			if (value) {
+				uri = uri.replace('{' + key + '}', value);
+				uri = uri.replace('{' + key + '?}', value);
+			}
+		}
+		// Remove unfilled optional params
+		uri = uri.replace(/\{\w+\?\}/g, '').replace(/\/+/g, '/').replace(/\/$/, '');
+		
+		// Request the API host from the extension
+		vscode.postMessage({
+			command: 'buildCurl',
+			method: method,
+			uri: uri,
+			bodyParams: bodyParams,
+			queryParams: queryParams,
+			bearerToken: bearerToken,
+			disabledParams: disabledParams
 		});
 	});
 	
