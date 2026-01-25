@@ -61,6 +61,7 @@ function initObjectEditor() {
     addFieldBtn.addEventListener('click', function() {
         addTreeNode(tree, objectEditorIsArray);
         updatePreview();
+        updateExpandCollapseButtons();
     });
     
     // Expand/collapse all
@@ -86,6 +87,21 @@ function initObjectEditor() {
     previewHeader.addEventListener('click', function() {
         previewSection.classList.toggle('collapsed');
     });
+}
+
+/**
+ * Update visibility of expand/collapse buttons based on whether there are nested fields
+ */
+function updateExpandCollapseButtons() {
+    const expandAllBtn = document.getElementById('object-editor-expand-all');
+    const collapseAllBtn = document.getElementById('object-editor-collapse-all');
+    const tree = document.getElementById('object-editor-tree');
+    
+    // Check if there are any collapsible (nested) nodes
+    const hasCollapsible = tree.querySelectorAll('.tree-children').length > 0;
+    
+    expandAllBtn.style.display = hasCollapsible ? '' : 'none';
+    collapseAllBtn.style.display = hasCollapsible ? '' : 'none';
 }
 
 /**
@@ -122,6 +138,9 @@ function openObjectEditor(fieldName, value, isArray, callback) {
     
     // Update preview
     updatePreview();
+    
+    // Update expand/collapse button visibility
+    updateExpandCollapseButtons();
     
     // Show modal
     overlay.classList.add('active');
@@ -246,6 +265,7 @@ function addTreeNode(container, isArrayItem, key, value) {
             if (children) {
                 addTreeNode(children, valueType === 'array');
                 updatePreview();
+                updateExpandCollapseButtons();
                 // Expand if collapsed
                 const expandBtn = node.querySelector('.tree-expand-btn');
                 if (expandBtn && !expandBtn.classList.contains('expanded')) {
@@ -265,6 +285,7 @@ function addTreeNode(container, isArrayItem, key, value) {
         node.remove();
         updateArrayIndices(container);
         updatePreview();
+        updateExpandCollapseButtons();
     });
     actions.appendChild(deleteBtn);
     
@@ -436,6 +457,7 @@ function handleTypeChange(node, newType) {
     }
     
     updatePreview();
+    updateExpandCollapseButtons();
 }
 
 /**
