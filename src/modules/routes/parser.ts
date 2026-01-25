@@ -350,23 +350,66 @@ export class RouteParser {
 	 * Parse inline validation from controller method
 	 */
 	private parseInlineValidation(methodContent: string): ParsedValidation | null {
-		// Match $request->validate([...]) or Validator::make($request->all(), [...])
-		const validatePatterns = [
-			/\$request->validate\s*\(\s*\[([\s\S]*?)\]\s*\)/,
-			/\$this->validate\s*\(\s*\$request\s*,\s*\[([\s\S]*?)\]\s*\)/,
-			/Validator::make\s*\([^,]+,\s*\[([\s\S]*?)\]\s*\)/,
-			/request\(\)->validate\s*\(\s*\[([\s\S]*?)\]\s*\)/
+		// Try to find the validation array using bracket matching for more accurate parsing
+		const validationStarts = [
+			/\$request->validate\s*\(\s*\[/,
+			/\$this->validate\s*\(\s*\$request\s*,\s*\[/,
+			/Validator::make\s*\([^[]*\[/,
+			/request\(\)->validate\s*\(\s*\[/,
+			/Request::validate\s*\(\s*\[/,
+			/\$request->validateWithBag\s*\([^,]+,\s*\[/,
+			/Validator::validate\s*\([^[]*\[/,
 		];
 
-		for (const pattern of validatePatterns) {
-			const match = pattern.exec(methodContent);
-			if (match) {
-				const rules = this.parseRulesArray(match[1]);
-				return {
-					source: 'inline',
-					params: this.parseValidationRules(rules)
-				};
+		for (const startPattern of validationStarts) {
+			const startMatch = startPattern.exec(methodContent);
+			if (startMatch) {
+				// Found a validation call, now extract the array using bracket matching
+				const arrayStartIndex = startMatch.index + startMatch[0].length - 1; // Position of opening [
+				const arrayContent = this.extractBracketedContent(methodContent, arrayStartIndex);
+				
+				if (arrayContent) {
+					console.log(`[Parser] Found inline validation, array length: ${arrayContent.length}`);
+					const rules = this.parseRulesArray(arrayContent);
+					console.log(`[Parser] Parsed ${Object.keys(rules).length} rules: ${Object.keys(rules).join(', ')}`);
+					
+					if (Object.keys(rules).length > 0) {
+						return {
+							source: 'inline',
+							params: this.parseValidationRules(rules)
+						};
+					}
+				}
 			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Extract content between balanced brackets starting at a given position
+	 */
+	private extractBracketedContent(content: string, startIndex: number): string | null {
+		if (content[startIndex] !== '[') {
+			return null;
+		}
+
+		let bracketCount = 1;
+		let index = startIndex + 1;
+
+		while (bracketCount > 0 && index < content.length) {
+			const char = content[index];
+			if (char === '[') {
+				bracketCount++;
+			} else if (char === ']') {
+				bracketCount--;
+			}
+			index++;
+		}
+
+		if (bracketCount === 0) {
+			// Return content without the outer brackets
+			return content.substring(startIndex + 1, index - 1);
 		}
 
 		return null;
@@ -378,26 +421,100 @@ export class RouteParser {
 	private parseRulesArray(arrayContent: string): Record<string, string[]> {
 		const rules: Record<string, string[]> = {};
 		
-		// Match 'field' => 'rules' or 'field' => ['rule1', 'rule2']
-		const rulePattern = /['"]([^'"]+)['"]\s*=>\s*(?:\[([^\]]*)\]|['"]([^'"]*?)['"])/g;
-		let match;
+		// Match 'field' => 'rules' or 'field' => ['rule1', 'rule2'] or 'field' => [Rule::...]
+		// We need to handle nested brackets for rules like Rule::in(['a', 'b'])
+		const fieldPattern = /['"]([^'"]+)['"]\s*=>/g;
+		let fieldMatch;
 
-		while ((match = rulePattern.exec(arrayContent)) !== null) {
-			const fieldName = match[1];
-			const arrayRules = match[2];
-			const stringRules = match[3];
-
-			if (arrayRules) {
-				// Parse array format ['required', 'string', 'max:255']
-				const rulesList = arrayRules
-					.split(',')
-					.map(r => r.trim().replace(/['"]/g, ''))
-					.filter(r => r.length > 0);
-				rules[fieldName] = rulesList;
-			} else if (stringRules) {
-				// Parse pipe-separated format 'required|string|max:255'
-				rules[fieldName] = stringRules.split('|').map(r => r.trim());
+		while ((fieldMatch = fieldPattern.exec(arrayContent)) !== null) {
+			const fieldName = fieldMatch[1];
+			const valueStartIndex = fieldMatch.index + fieldMatch[0].length;
+			
+			// Skip whitespace
+			let valueIndex = valueStartIndex;
+			while (valueIndex < arrayContent.length && /\s/.test(arrayContent[valueIndex])) {
+				valueIndex++;
 			}
+
+			if (valueIndex >= arrayContent.length) {
+				continue;
+			}
+
+			const valueChar = arrayContent[valueIndex];
+			let fieldRules: string[] = [];
+
+			if (valueChar === '[') {
+				// Array format: ['required', 'string'] or [Rule::in([...])]
+				const bracketContent = this.extractBracketedContent(arrayContent, valueIndex);
+				if (bracketContent) {
+					fieldRules = this.parseRulesList(bracketContent);
+				}
+			} else if (valueChar === "'" || valueChar === '"') {
+				// String format: 'required|string|max:255'
+				const stringMatch = /^(['"])(.*?)\1/.exec(arrayContent.substring(valueIndex));
+				if (stringMatch) {
+					fieldRules = stringMatch[2].split('|').map(r => r.trim());
+				}
+			}
+
+			if (fieldRules.length > 0) {
+				rules[fieldName] = fieldRules;
+			}
+		}
+
+		return rules;
+	}
+
+	/**
+	 * Parse a comma-separated list of rules, handling nested brackets
+	 */
+	private parseRulesList(content: string): string[] {
+		const rules: string[] = [];
+		let current = '';
+		let bracketDepth = 0;
+		let parenDepth = 0;
+		let inString = false;
+		let stringChar = '';
+
+		for (let i = 0; i < content.length; i++) {
+			const char = content[i];
+
+			if (inString) {
+				current += char;
+				if (char === stringChar && content[i - 1] !== '\\') {
+					inString = false;
+				}
+			} else if (char === '"' || char === "'") {
+				inString = true;
+				stringChar = char;
+				current += char;
+			} else if (char === '[') {
+				bracketDepth++;
+				current += char;
+			} else if (char === ']') {
+				bracketDepth--;
+				current += char;
+			} else if (char === '(') {
+				parenDepth++;
+				current += char;
+			} else if (char === ')') {
+				parenDepth--;
+				current += char;
+			} else if (char === ',' && bracketDepth === 0 && parenDepth === 0) {
+				const trimmed = current.trim().replace(/^['"]|['"]$/g, '');
+				if (trimmed) {
+					rules.push(trimmed);
+				}
+				current = '';
+			} else {
+				current += char;
+			}
+		}
+
+		// Don't forget the last item
+		const trimmed = current.trim().replace(/^['"]|['"]$/g, '');
+		if (trimmed) {
+			rules.push(trimmed);
 		}
 
 		return rules;
