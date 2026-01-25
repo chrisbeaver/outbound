@@ -227,11 +227,18 @@
     cursor: pointer;
     font-size: 13px;
     font-family: var(--vscode-font-family);
+    transition: transform 0.1s ease, opacity 0.1s ease;
 }
 
 .response-modal-btn:hover {
     background-color: var(--vscode-button-hoverBackground);
 }
+
+.response-modal-btn:active {
+    transform: scale(0.95);
+    opacity: 0.85;
+}
+
 .response-modal-btn-primary {
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
@@ -240,6 +247,11 @@
 .response-modal-btn-primary:hover {
     background: var(--vscode-button-hoverBackground);
 }
+
+.response-modal-btn-primary:active {
+    background: var(--vscode-button-background);
+}
+
 .response-modal-btn-secondary {
     background-color: var(--vscode-button-secondaryBackground);
     color: var(--vscode-button-secondaryForeground);
@@ -247,6 +259,10 @@
 
 .response-modal-btn-secondary:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.response-modal-btn-secondary:active {
+    background-color: var(--vscode-button-secondaryBackground);
 }
 
 /* Copy success message */
