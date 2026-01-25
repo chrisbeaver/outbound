@@ -95,7 +95,7 @@ function initRequestModal(config) {
 			}
 		} else if (message.command === 'openModal') {
 			// Open modal from extension command (e.g., context menu)
-			openModal(message.method, message.uri, message.fields);
+			openModal(message.method, message.uri, message.fields, message.defaultQueryParams);
 		}
 	});
 	
@@ -600,7 +600,7 @@ function initRequestModal(config) {
 	}
 	
 	// Open modal function (exposed globally)
-	window.openModal = function(method, uri, fieldsJson) {
+	window.openModal = function(method, uri, fieldsJson, defaultQueryParams) {
 		currentRouteKey = method + ' ' + uri;
 		currentFieldsJson = fieldsJson;
 		currentRouteMethod = method.split('|')[0].toUpperCase();
@@ -748,16 +748,21 @@ function initRequestModal(config) {
 		hasPersistedQueryState = !!persistedQuery;
 		const sessionQuery = queryParamsState[currentRouteKey];
 		
-		// Priority: persisted > session
-		const queryToRender = persistedQuery || sessionQuery || [];
+		// Priority: persisted > session > defaultQueryParams (from route validators for GET/HEAD)
+		const queryToRender = persistedQuery || sessionQuery || (defaultQueryParams || []);
 		renderQueryParams(queryToRender);
 		
 		// Clear add query param inputs
 		addQueryParamName.value = '';
 		addQueryParamValue.value = '';
 		
-		// Collapse query params section by default
-		queryParamsSection.classList.remove('open');
+		// For GET/HEAD with query params, expand the query params section
+		if (isGetOrHead && queryToRender.length > 0) {
+			queryParamsSection.classList.add('open');
+		} else {
+			// Collapse query params section by default for other methods
+			queryParamsSection.classList.remove('open');
+		}
 		
 		// Load custom params for this route
 		const persistedCustom = persistedCustomParams[currentRouteKey];

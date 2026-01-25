@@ -365,13 +365,28 @@ export class RoutesPanel {
 		// Send raw values (unescaped) to the webview so it can JSON.parse the fields correctly.
 		const method = route.method || '';
 		const uri = route.uri || '';
+		const httpMethod = method.split('|')[0].toUpperCase();
+		const isGetOrHead = httpMethod === 'GET' || httpMethod === 'HEAD';
 
-		// Build the fields array (same structure as _generateFieldsJson but without HTML-escaping)
+		// Build the fields array for body params (only for non-GET/HEAD requests)
 		const fields: Array<{key: string, value: unknown, type: string}> = [];
+		// Build the default query params array (for GET/HEAD requests, use request params)
+		const defaultQueryParams: Array<{name: string, value: string}> = [];
+		
 		if (route.requestParams && route.requestParams.length > 0) {
 			for (const param of route.requestParams) {
 				if (param.isPathParam) { continue; }
-				fields.push({ key: param.name, value: this._getExampleValue(param), type: param.type || 'string' });
+				
+				if (isGetOrHead) {
+					// For GET/HEAD, request params become query params
+					defaultQueryParams.push({ 
+						name: param.name, 
+						value: String(this._getExampleValue(param) ?? '') 
+					});
+				} else {
+					// For other methods, request params become body params
+					fields.push({ key: param.name, value: this._getExampleValue(param), type: param.type || 'string' });
+				}
 			}
 		}
 
@@ -379,7 +394,8 @@ export class RoutesPanel {
 			command: 'openModal',
 			method: method,
 			uri: uri,
-			fields: JSON.stringify(fields)
+			fields: JSON.stringify(fields),
+			defaultQueryParams: defaultQueryParams
 		});
 	}
 
@@ -476,16 +492,20 @@ ${bearerTokenJs}
 		// Handle submit button clicks
 		document.addEventListener('click', function(e) {
 			const target = e.target;
-			console.log('[Lapi] Click event:', target);
 			if (target && target.classList && target.classList.contains('submit-btn')) {
-				console.log('[Lapi] Submit button clicked');
 				const method = target.getAttribute('data-method');
 				const uri = target.getAttribute('data-uri');
 				const fields = target.getAttribute('data-fields');
-				console.log('[Lapi] Method:', method, 'URI:', uri, 'Fields:', fields);
+				const queryParamsAttr = target.getAttribute('data-query-params') || '[]';
+				let defaultQueryParams = [];
+				try {
+					// The attribute has &quot; which the browser converts back to "
+					defaultQueryParams = JSON.parse(queryParamsAttr);
+				} catch (err) {
+					console.error('[Lapi] Failed to parse query params:', err, queryParamsAttr);
+				}
 				if (method && uri && fields !== null) {
-					console.log('[Lapi] Calling openModal');
-					window.openModal(method, uri, fields);
+					window.openModal(method, uri, fields, defaultQueryParams);
 				}
 			}
 		});
@@ -518,6 +538,7 @@ ${bearerTokenJs}
 		const submitMethod = route.method.split('|')[0].toUpperCase();
 		const submitBtnClass = `submit-btn-${submitMethod.toLowerCase()}`;
 		const fieldsJson = this._generateFieldsJson(route);
+		const defaultQueryParamsJson = this._generateDefaultQueryParamsJson(route);
 		const method = this._escapeHtml(route.method);
 		const uri = this._escapeHtml(route.uri);
 
@@ -531,7 +552,7 @@ ${bearerTokenJs}
 
 		return `
 			<tr>
-				<td><button class="submit-btn ${submitBtnClass}" data-method="${method}" data-uri="${uri}" data-fields="${fieldsJson}">${submitMethod}</button></td>
+				<td><button class="submit-btn ${submitBtnClass}" data-method="${method}" data-uri="${uri}" data-fields="${fieldsJson}" data-query-params="${defaultQueryParamsJson}">${submitMethod}</button></td>
 				<td><span class="method ${methodClass}">${this._escapeHtml(route.method)}</span></td>
 				<td class="uri">${this._escapeHtml(route.uri)}</td>
 				<td class="name">${this._escapeHtml(name)}</td>
@@ -540,12 +561,39 @@ ${bearerTokenJs}
 		`;
 	}
 
-	private _generateFieldsJson(route: LaravelRoute): string {
-		if (!route.requestParams || route.requestParams.length === 0) {
+	private _generateDefaultQueryParamsJson(route: LaravelRoute): string {
+		const httpMethod = (route.method || '').split('|')[0].toUpperCase();
+		const isGetOrHead = httpMethod === 'GET' || httpMethod === 'HEAD';
+		
+		// Only generate default query params for GET/HEAD requests
+		if (!isGetOrHead || !route.requestParams || route.requestParams.length === 0) {
 			return '[]';
 		}
 
-		// Build field metadata for the editable form
+		const queryParams: Array<{name: string, value: string}> = [];
+		for (const param of route.requestParams) {
+			if (param.isPathParam) {
+				continue;
+			}
+			queryParams.push({
+				name: param.name,
+				value: String(this._getExampleValue(param) ?? '')
+			});
+		}
+
+		return JSON.stringify(queryParams).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+	}
+
+	private _generateFieldsJson(route: LaravelRoute): string {
+		const httpMethod = (route.method || '').split('|')[0].toUpperCase();
+		const isGetOrHead = httpMethod === 'GET' || httpMethod === 'HEAD';
+		
+		// For GET/HEAD requests, body params should be empty (validators go to query params)
+		if (isGetOrHead || !route.requestParams || route.requestParams.length === 0) {
+			return '[]';
+		}
+
+		// Build field metadata for the editable form (body params only)
 		const fields: Array<{key: string, value: unknown, type: string}> = [];
 
 		for (const param of route.requestParams) {
