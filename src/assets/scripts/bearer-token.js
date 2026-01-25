@@ -263,7 +263,7 @@ function initBearerToken(config) {
 	};
 	window.syncModalAuthDropdown = function() {
 		const modalAuthSelect = document.getElementById('modal-auth-select');
-		if (!modalAuthSelect) return;
+		if (!modalAuthSelect) { return; }
 		
 		const tokenNames = Object.keys(bearerTokens);
 		let options = '<option value="">No Auth</option>';

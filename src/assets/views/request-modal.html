@@ -22,23 +22,44 @@
                 <h3 class="section-title">URI Segments</h3>
                 <div class="uri-segments-form" id="uri-segments-form"></div>
             </div>
-            <div class="request-body-section" id="request-body-section">
-                <h3 class="section-title" id="body-section-title">Request Body</h3>
-                <div class="modal-form" id="modal-form"></div>
-                <div class="custom-params-section" id="custom-params-section">
-                    <div class="custom-params-list" id="custom-params-list"></div>
-                    <div class="add-param-row" id="add-param-row">
-                        <input type="text" class="add-param-name" id="add-param-name" placeholder="Parameter name" />
-                        <select class="add-param-type" id="add-param-type">
-                            <option value="string">Text</option>
-                            <option value="integer">Number</option>
-                            <option value="boolean">Boolean</option>
-                            <option value="date">Date</option>
-                            <option value="file">File</option>
-                            <option value="array">Array (JSON)</option>
-                            <option value="object">Object (JSON)</option>
-                        </select>
-                        <button class="add-param-btn" id="add-param-btn" title="Add parameter">+</button>
+            <div class="query-params-section collapsible" id="query-params-section">
+                <div class="collapsible-header" id="query-params-header">
+                    <span class="collapsible-icon">▶</span>
+                    <h3 class="section-title">Query Parameters</h3>
+                    <span class="query-params-count" id="query-params-count"></span>
+                </div>
+                <div class="collapsible-content" id="query-params-content">
+                    <div class="query-params-list" id="query-params-list"></div>
+                    <div class="add-query-param-row">
+                        <input type="text" class="add-query-param-name" id="add-query-param-name" placeholder="Parameter name" />
+                        <input type="text" class="add-query-param-value" id="add-query-param-value" placeholder="Value" />
+                        <button class="add-param-btn" id="add-query-param-btn" title="Add query parameter">+</button>
+                    </div>
+                </div>
+            </div>
+            <div class="request-body-section collapsible open" id="request-body-section">
+                <div class="collapsible-header" id="request-body-header">
+                    <span class="collapsible-icon">▶</span>
+                    <h3 class="section-title">Request Body</h3>
+                    <span class="request-body-count" id="request-body-count"></span>
+                </div>
+                <div class="collapsible-content" id="request-body-content">
+                    <div class="modal-form" id="modal-form"></div>
+                    <div class="custom-params-section" id="custom-params-section">
+                        <div class="custom-params-list" id="custom-params-list"></div>
+                        <div class="add-param-row" id="add-param-row">
+                            <input type="text" class="add-param-name" id="add-param-name" placeholder="Parameter name" />
+                            <select class="add-param-type" id="add-param-type">
+                                <option value="string">Text</option>
+                                <option value="integer">Number</option>
+                                <option value="boolean">Boolean</option>
+                                <option value="date">Date</option>
+                                <option value="file">File</option>
+                                <option value="array">Array (JSON)</option>
+                                <option value="object">Object (JSON)</option>
+                            </select>
+                            <button class="add-param-btn" id="add-param-btn" title="Add parameter">+</button>
+                        </div>
                     </div>
                 </div>
             </div>

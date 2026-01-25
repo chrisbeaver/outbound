@@ -10,6 +10,7 @@ const PATH_PARAMS_STATE_KEY = 'lapi.pathParams';
 const BEARER_TOKENS_KEY = 'lapi.bearerTokens';
 const SELECTED_TOKEN_KEY = 'lapi.selectedToken';
 const CUSTOM_PARAMS_KEY = 'lapi.customParams';
+const QUERY_PARAMS_KEY = 'lapi.queryParams';
 
 /**
  * Manages the Routes Table webview panel
@@ -107,7 +108,7 @@ export class RoutesPanel {
 		this._panel.webview.onDidReceiveMessage(
 			async (message) => {
 				if (message.command === 'executeRequest') {
-					const { method, uri, bodyParams, pathParams, disabledParams, bearerToken } = message;
+					const { method, uri, bodyParams, pathParams, disabledParams, queryParams, bearerToken } = message;
 					const route = getRouteStorage().get(method, uri);
 					
 					if (route) {
@@ -125,14 +126,17 @@ export class RoutesPanel {
 						if (disabledParams && disabledParams.length > 0) {
 							this._outputChannel.appendLine(`Disabled params: ${disabledParams.join(', ')}`);
 						}
+						if (queryParams && queryParams.length > 0) {
+							this._outputChannel.appendLine(`Query params: ${queryParams.map((q: {name: string, value: string}) => `${q.name}=${q.value}`).join('&')}`);
+						}
 						if (bearerToken) {
 							this._outputChannel.appendLine(`Using Bearer Token: ${bearerToken.substring(0, 20)}...`);
 						}
 						this._outputChannel.appendLine('');
 						
 						try {
-							// Pass bodyParams, pathParams, disabledParams and bearerToken from the edited form
-							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string>; disabledParams?: string[]; bearerToken?: string } = {};
+							// Pass bodyParams, pathParams, disabledParams, queryParams and bearerToken from the edited form
+							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string>; disabledParams?: string[]; queryParams?: Array<{name: string, value: string}>; bearerToken?: string } = {};
 							if (bodyParams && Object.keys(bodyParams).length > 0) {
 								options.bodyParams = bodyParams;
 							}
@@ -141,6 +145,9 @@ export class RoutesPanel {
 							}
 							if (disabledParams && disabledParams.length > 0) {
 								options.disabledParams = disabledParams;
+							}
+							if (queryParams && queryParams.length > 0) {
+								options.queryParams = queryParams;
 							}
 							if (bearerToken) {
 								options.bearerToken = bearerToken;
@@ -258,6 +265,14 @@ export class RoutesPanel {
 					// Clear custom params for a route
 					const { routeKey } = message;
 					await this._clearCustomParams(routeKey);
+				} else if (message.command === 'saveQueryParams') {
+					// Save query params for a route
+					const { routeKey, queryParams } = message;
+					await this._saveQueryParams(routeKey, queryParams);
+				} else if (message.command === 'clearQueryParams') {
+					// Clear query params for a route
+					const { routeKey } = message;
+					await this._clearQueryParams(routeKey);
 				}
 			},
 			null,
@@ -306,6 +321,18 @@ export class RoutesPanel {
 		await this._context.workspaceState.update(CUSTOM_PARAMS_KEY, allParams);
 	}
 
+	private async _saveQueryParams(routeKey: string, queryParams: Array<{name: string, value: string}>): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string}>>>(QUERY_PARAMS_KEY, {});
+		allParams[routeKey] = queryParams;
+		await this._context.workspaceState.update(QUERY_PARAMS_KEY, allParams);
+	}
+
+	private async _clearQueryParams(routeKey: string): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string}>>>(QUERY_PARAMS_KEY, {});
+		delete allParams[routeKey];
+		await this._context.workspaceState.update(QUERY_PARAMS_KEY, allParams);
+	}
+
 	public dispose() {
 		RoutesPanel.currentPanel = undefined;
 
@@ -343,7 +370,7 @@ export class RoutesPanel {
 		const fields: Array<{key: string, value: unknown, type: string}> = [];
 		if (route.requestParams && route.requestParams.length > 0) {
 			for (const param of route.requestParams) {
-				if (param.isPathParam) continue;
+				if (param.isPathParam) { continue; }
 				fields.push({ key: param.name, value: this._getExampleValue(param), type: param.type || 'string' });
 			}
 		}
@@ -364,6 +391,7 @@ export class RoutesPanel {
 		const bearerTokens = this._context.workspaceState.get<Record<string, string>>(BEARER_TOKENS_KEY, {});
 		const selectedToken = this._context.workspaceState.get<string>(SELECTED_TOKEN_KEY, '');
 		const customParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown}>>>(CUSTOM_PARAMS_KEY, {});
+		const queryParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string}>>>(QUERY_PARAMS_KEY, {});
 
 		// Load asset files
 		const assetsPath = path.join(this._extensionUri.fsPath, 'src', 'assets');
@@ -431,7 +459,8 @@ ${bearerTokenJs}
 			vscode: vscode,
 			persistedParams: ${JSON.stringify(persistedParams)},
 			persistedPathParams: ${JSON.stringify(persistedPathParams)},
-			persistedCustomParams: ${JSON.stringify(customParams)}
+			persistedCustomParams: ${JSON.stringify(customParams)},
+			persistedQueryParams: ${JSON.stringify(queryParams)}
 		});
 		initResponseModal({
 			vscode: vscode
@@ -440,6 +469,25 @@ ${bearerTokenJs}
 			vscode: vscode,
 			persistedTokens: ${JSON.stringify(bearerTokens)},
 			selectedToken: ${JSON.stringify(selectedToken)}
+		});
+		
+		console.log('[Lapi] Scripts initialized');
+		
+		// Handle submit button clicks
+		document.addEventListener('click', function(e) {
+			const target = e.target;
+			console.log('[Lapi] Click event:', target);
+			if (target && target.classList && target.classList.contains('submit-btn')) {
+				console.log('[Lapi] Submit button clicked');
+				const method = target.getAttribute('data-method');
+				const uri = target.getAttribute('data-uri');
+				const fields = target.getAttribute('data-fields');
+				console.log('[Lapi] Method:', method, 'URI:', uri, 'Fields:', fields);
+				if (method && uri && fields !== null) {
+					console.log('[Lapi] Calling openModal');
+					window.openModal(method, uri, fields);
+				}
+			}
 		});
 		
 		// Handle controller link clicks
@@ -483,7 +531,7 @@ ${bearerTokenJs}
 
 		return `
 			<tr>
-				<td><button class="submit-btn ${submitBtnClass}" onclick="openModal('${method}', '${uri}', '${fieldsJson}')">${submitMethod}</button></td>
+				<td><button class="submit-btn ${submitBtnClass}" data-method="${method}" data-uri="${uri}" data-fields="${fieldsJson}">${submitMethod}</button></td>
 				<td><span class="method ${methodClass}">${this._escapeHtml(route.method)}</span></td>
 				<td class="uri">${this._escapeHtml(route.uri)}</td>
 				<td class="name">${this._escapeHtml(name)}</td>

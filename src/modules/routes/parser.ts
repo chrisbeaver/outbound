@@ -700,7 +700,7 @@ export function generateRequestConfig(
 	}
 
 	// Separate body and query params
-	const queryParams: Record<string, string> = {};
+	const queryParams: Array<{name: string, value: string}> = [];
 	const bodyParams: Record<string, unknown> = {};
 
 	// Determine content type
@@ -722,7 +722,7 @@ export function generateRequestConfig(
 			}
 
 			if (method === 'GET' || method === 'HEAD') {
-				queryParams[param.name] = '';
+				queryParams.push({name: param.name, value: ''});
 			} else {
 				bodyParams[param.name] = getDefaultValueForType(param.type);
 			}

@@ -183,7 +183,7 @@ suite('API Request Module Test Suite', () => {
 
 			const curl = buildCurlCommand(route, {
 				host: 'http://localhost:8000',
-				queryParams: { page: '1', limit: '10' }
+				queryParams: [{ name: 'page', value: '1' }, { name: 'limit', value: '10' }]
 			});
 
 			assert.ok(curl.includes('page=1'));
@@ -392,8 +392,8 @@ suite('API Request Module Test Suite', () => {
 
 			const config = buildRequestConfig(route, 'http://localhost:8000');
 
-			assert.ok('search' in config.queryParams);
-			assert.ok('page' in config.queryParams);
+			assert.ok(config.queryParams.some(p => p.name === 'search'));
+			assert.ok(config.queryParams.some(p => p.name === 'page'));
 		});
 
 		test('should strip trailing slash from host', () => {

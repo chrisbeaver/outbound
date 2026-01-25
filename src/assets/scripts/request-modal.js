@@ -7,6 +7,7 @@
  * - persistedParams: Object of persisted params from workspace state
  * - persistedPathParams: Object of persisted path params from workspace state
  * - persistedCustomParams: Object of persisted custom params from workspace state
+ * - persistedQueryParams: Object of persisted query params from workspace state
  */
 
 // Modal state
@@ -14,9 +15,11 @@ let currentRouteKey = null;
 let currentRouteFields = null;
 let currentPathSegments = null;
 let currentFieldsJson = null;
+let currentRouteMethod = null;
 let hasPersistedState = false;
 let hasPersistedPathState = false;
 let hasPersistedCustomState = false;
+let hasPersistedQueryState = false;
 let serverIsOnline = false;
 let serverPollInterval = null;
 
@@ -28,6 +31,12 @@ const pathSegmentDefaults = {};
 const sessionState = {};
 const pathSessionState = {};
 const customParamsState = {};
+const queryParamsState = {};
+
+// Fallback openModal function in case init fails
+window.openModal = function(method, uri, fieldsJson) {
+	console.error('[Lapi] openModal called but modal not initialized');
+};
 
 /**
  * Initialize the request modal
@@ -37,7 +46,8 @@ const customParamsState = {};
  * @param {object} config.persistedPathParams - Persisted path params from workspace state
  */
 function initRequestModal(config) {
-	const { vscode, persistedParams, persistedPathParams, persistedCustomParams } = config;
+	try {
+	const { vscode, persistedParams, persistedPathParams, persistedCustomParams, persistedQueryParams } = config;
 	
 	// Get DOM elements
 	const modalOverlay = document.getElementById('modal-overlay');
@@ -55,11 +65,20 @@ function initRequestModal(config) {
 	const serverStatusText = document.getElementById('server-status-text');
 	const uriSegmentsSection = document.getElementById('uri-segments-section');
 	const uriSegmentsForm = document.getElementById('uri-segments-form');
-	const bodySectionTitle = document.getElementById('body-section-title');
+	const requestBodySection = document.getElementById('request-body-section');
+	const requestBodyHeader = document.getElementById('request-body-header');
+	const requestBodyCount = document.getElementById('request-body-count');
 	const customParamsList = document.getElementById('custom-params-list');
 	const addParamName = document.getElementById('add-param-name');
 	const addParamType = document.getElementById('add-param-type');
 	const addParamBtn = document.getElementById('add-param-btn');
+	const queryParamsSection = document.getElementById('query-params-section');
+	const queryParamsHeader = document.getElementById('query-params-header');
+	const queryParamsList = document.getElementById('query-params-list');
+	const queryParamsCount = document.getElementById('query-params-count');
+	const addQueryParamName = document.getElementById('add-query-param-name');
+	const addQueryParamValue = document.getElementById('add-query-param-value');
+	const addQueryParamBtn = document.getElementById('add-query-param-btn');
 	
 	// Listen for server status response from extension
 	window.addEventListener('message', function(event) {
@@ -82,7 +101,7 @@ function initRequestModal(config) {
 	
 	// Start polling server status every second
 	function startServerPolling() {
-		if (serverPollInterval) return; // Already polling
+		if (serverPollInterval) { return; } // Already polling
 		serverPollInterval = setInterval(function() {
 			if (modalOverlay.classList.contains('active') && !serverIsOnline) {
 				vscode.postMessage({ command: 'checkServerStatus' });
@@ -149,26 +168,26 @@ function initRequestModal(config) {
 	}
 	
 	function hasChanges() {
-		if (!currentRouteKey || !routeDefaults[currentRouteKey]) return false;
+		if (!currentRouteKey || !routeDefaults[currentRouteKey]) { return false; }
 		// Include all values (even disabled) for comparison
 		const current = getFormJson(modalForm, true);
 		const defaults = routeDefaults[currentRouteKey];
-		if (JSON.stringify(current) !== JSON.stringify(defaults)) return true;
+		if (JSON.stringify(current) !== JSON.stringify(defaults)) { return true; }
 		
 		// Also check if any fields were disabled
 		const enabledState = getFormEnabledState(modalForm);
 		for (const key in enabledState) {
-			if (!enabledState[key]) return true; // A field is disabled, so there are changes
+			if (!enabledState[key]) { return true; } // A field is disabled, so there are changes
 		}
 		return false;
 	}
 	
 	function hasPathChanges() {
-		if (!currentRouteKey || !currentPathSegments || currentPathSegments.length === 0) return false;
+		if (!currentRouteKey || !currentPathSegments || currentPathSegments.length === 0) { return false; }
 		const current = getFormJson(uriSegmentsForm);
 		// Path segments have empty defaults, so any non-empty value is a change
 		for (const key in current) {
-			if (current[key] !== '') return true;
+			if (current[key] !== '') { return true; }
 		}
 		return false;
 	}
@@ -267,7 +286,7 @@ function initRequestModal(config) {
 	}
 	
 	function addCustomParam(name, type, value) {
-		if (!name.trim()) return;
+		if (!name.trim()) { return; }
 		
 		const field = document.createElement('div');
 		field.className = 'custom-param-field';
@@ -348,13 +367,119 @@ function initRequestModal(config) {
 		}
 	}
 	
+	// Query params functions
+	function persistQueryParams(routeKey, queryParams) {
+		vscode.postMessage({
+			command: 'saveQueryParams',
+			routeKey: routeKey,
+			queryParams: queryParams
+		});
+		persistedQueryParams[routeKey] = queryParams;
+	}
+	
+	function clearPersistedQueryParams(routeKey) {
+		vscode.postMessage({
+			command: 'clearQueryParams',
+			routeKey: routeKey
+		});
+		delete persistedQueryParams[routeKey];
+	}
+	
+	function getCurrentQueryParams() {
+		const params = [];
+		const items = queryParamsList.querySelectorAll('.query-param-item');
+		for (const item of items) {
+			const nameInput = item.querySelector('.query-param-name');
+			const valueInput = item.querySelector('.query-param-value');
+			if (nameInput && valueInput && nameInput.value.trim()) {
+				params.push({ name: nameInput.value.trim(), value: valueInput.value });
+			}
+		}
+		return params;
+	}
+	
+	function addQueryParam(name, value) {
+		const item = document.createElement('div');
+		item.className = 'query-param-item';
+		
+		const nameInput = document.createElement('input');
+		nameInput.type = 'text';
+		nameInput.className = 'query-param-name';
+		nameInput.value = name || '';
+		nameInput.placeholder = 'Name';
+		nameInput.addEventListener('input', saveQueryParamsState);
+		item.appendChild(nameInput);
+		
+		const valueInput = document.createElement('input');
+		valueInput.type = 'text';
+		valueInput.className = 'query-param-value';
+		valueInput.value = value || '';
+		valueInput.placeholder = 'Value';
+		valueInput.addEventListener('input', saveQueryParamsState);
+		item.appendChild(valueInput);
+		
+		const removeBtn = document.createElement('button');
+		removeBtn.className = 'query-param-remove';
+		removeBtn.textContent = '×';
+		removeBtn.title = 'Remove parameter';
+		removeBtn.addEventListener('click', function() {
+			item.remove();
+			updateQueryParamsCount();
+			saveQueryParamsState();
+		});
+		item.appendChild(removeBtn);
+		
+		queryParamsList.appendChild(item);
+		updateQueryParamsCount();
+	}
+	
+	function renderQueryParams(params) {
+		queryParamsList.innerHTML = '';
+		if (params && params.length > 0) {
+			for (const param of params) {
+				addQueryParam(param.name, param.value);
+			}
+		}
+		updateQueryParamsCount();
+	}
+	
+	function updateQueryParamsCount() {
+		const count = queryParamsList.querySelectorAll('.query-param-item').length;
+		queryParamsCount.textContent = count > 0 ? count : '';
+	}
+	
+	function saveQueryParamsState() {
+		if (currentRouteKey) {
+			const queryParams = getCurrentQueryParams();
+			queryParamsState[currentRouteKey] = queryParams;
+			
+			if (queryParams.length > 0) {
+				persistQueryParams(currentRouteKey, queryParams);
+				hasPersistedQueryState = true;
+			} else if (hasPersistedQueryState) {
+				clearPersistedQueryParams(currentRouteKey);
+				hasPersistedQueryState = false;
+			}
+		}
+	}
+	
 	function updateCopyButtonState() {
 		const hasFields = modalForm.querySelectorAll('.form-field').length > 0;
 		const hasCustomParams = customParamsList.querySelectorAll('.custom-param-field').length > 0;
 		modalCopy.disabled = !hasFields && !hasCustomParams;
+		updateRequestBodyCount();
 	}
 	
-	function submitRequest(method, uri, bodyParams, pathParams, disabledParams) {
+	function updateRequestBodyCount() {
+		const fieldCount = modalForm.querySelectorAll('.form-field').length;
+		const customCount = customParamsList.querySelectorAll('.custom-param-field').length;
+		const total = fieldCount + customCount;
+		if (requestBodyCount) {
+			requestBodyCount.textContent = total > 0 ? total : '';
+		}
+	}
+	
+	function submitRequest(method, uri, bodyParams, pathParams, disabledParams, queryParams) {
 		// Get bearer token from modal dropdown
 		const modalAuthSelect = document.getElementById('modal-auth-select');
 		const selectedTokenName = modalAuthSelect ? modalAuthSelect.value : '';
@@ -369,6 +494,7 @@ function initRequestModal(config) {
 			bodyParams: bodyParams,
 			pathParams: pathParams,
 			disabledParams: disabledParams,
+			queryParams: queryParams,
 			bearerToken: bearerToken
 		});
 	}
@@ -409,7 +535,7 @@ function initRequestModal(config) {
 	}
 	
 	function resetToDefaults() {
-		if (!currentRouteKey) return;
+		if (!currentRouteKey) { return; }
 		
 		// Clear persisted body params
 		if (currentRouteFields && currentRouteFields.length > 0) {
@@ -450,6 +576,13 @@ function initRequestModal(config) {
 		hasPersistedCustomState = false;
 		customParamsList.innerHTML = '';
 		
+		// Clear query params
+		clearPersistedQueryParams(currentRouteKey);
+		delete queryParamsState[currentRouteKey];
+		hasPersistedQueryState = false;
+		queryParamsList.innerHTML = '';
+		updateQueryParamsCount();
+		
 		// Update title to remove saved indicator
 		const paramCount = currentRouteFields ? currentRouteFields.length : 0;
 		modalTitle.innerHTML = paramCount > 0 
@@ -470,6 +603,7 @@ function initRequestModal(config) {
 	window.openModal = function(method, uri, fieldsJson) {
 		currentRouteKey = method + ' ' + uri;
 		currentFieldsJson = fieldsJson;
+		currentRouteMethod = method.split('|')[0].toUpperCase();
 		
 		// Parse fields and build form
 		const fields = JSON.parse(fieldsJson);
@@ -558,6 +692,27 @@ function initRequestModal(config) {
 		// Show/hide reset button
 		modalReset.style.display = (hasPersistedState || hasPersistedPathState) ? 'inline-block' : 'none';
 		
+		// Handle request body section visibility and state based on HTTP method
+		const isGetOrHead = currentRouteMethod === 'GET' || currentRouteMethod === 'HEAD';
+		
+		if (requestBodySection) {
+			if (isGetOrHead) {
+				// Hide request body section for GET/HEAD requests
+				requestBodySection.style.display = 'none';
+			} else {
+				// Show request body section for other methods
+				requestBodySection.style.display = 'block';
+				// Default to open for POST/PUT/PATCH/DELETE
+				requestBodySection.classList.add('open');
+			}
+		}
+		
+		// Update request body count badge
+		const totalBodyParams = fields.length;
+		if (requestBodyCount) {
+			requestBodyCount.textContent = totalBodyParams > 0 ? totalBodyParams : '';
+		}
+		
 		if (fields.length === 0) {
 			modalForm.innerHTML = '<div style="color: var(--vscode-descriptionForeground); font-style: italic;">No request parameters</div>';
 			modalCopy.disabled = true;
@@ -588,6 +743,22 @@ function initRequestModal(config) {
 		copySuccess.classList.remove('show');
 		jsonError.classList.remove('show');
 		
+		// Load query params for this route
+		const persistedQuery = persistedQueryParams[currentRouteKey];
+		hasPersistedQueryState = !!persistedQuery;
+		const sessionQuery = queryParamsState[currentRouteKey];
+		
+		// Priority: persisted > session
+		const queryToRender = persistedQuery || sessionQuery || [];
+		renderQueryParams(queryToRender);
+		
+		// Clear add query param inputs
+		addQueryParamName.value = '';
+		addQueryParamValue.value = '';
+		
+		// Collapse query params section by default
+		queryParamsSection.classList.remove('open');
+		
 		// Load custom params for this route
 		const persistedCustom = persistedCustomParams[currentRouteKey];
 		hasPersistedCustomState = !!persistedCustom;
@@ -605,7 +776,7 @@ function initRequestModal(config) {
 		updateCopyButtonState();
 		
 		// Update reset button to show if any state is persisted
-		modalReset.style.display = (hasPersistedState || hasPersistedPathState || hasPersistedCustomState) ? 'inline-block' : 'none';
+		modalReset.style.display = (hasPersistedState || hasPersistedPathState || hasPersistedCustomState || hasPersistedQueryState) ? 'inline-block' : 'none';
 		
 		// Sync auth token dropdown
 		if (typeof window.syncModalAuthDropdown === 'function') {
@@ -620,6 +791,38 @@ function initRequestModal(config) {
 	modalClose.addEventListener('click', closeModal);
 	modalCloseBtn.addEventListener('click', closeModal);
 	modalReset.addEventListener('click', resetToDefaults);
+	
+	// Toggle query params section
+	queryParamsHeader.addEventListener('click', function() {
+		queryParamsSection.classList.toggle('open');
+	});
+	
+	// Toggle request body section
+	if (requestBodyHeader) {
+		requestBodyHeader.addEventListener('click', function() {
+			requestBodySection.classList.toggle('open');
+		});
+	}
+	
+	// Add query parameter
+	addQueryParamBtn.addEventListener('click', function() {
+		const name = addQueryParamName.value.trim();
+		const value = addQueryParamValue.value;
+		if (name) {
+			addQueryParam(name, value);
+			addQueryParamName.value = '';
+			addQueryParamValue.value = '';
+			addQueryParamName.focus();
+			saveQueryParamsState();
+		}
+	});
+	
+	// Allow Enter key to add query param
+	addQueryParamValue.addEventListener('keydown', function(e) {
+		if (e.key === 'Enter') {
+			addQueryParamBtn.click();
+		}
+	});
 	
 	// Add custom parameter
 	addParamBtn.addEventListener('click', function() {
@@ -662,14 +865,18 @@ function initRequestModal(config) {
 			bodyParams[param.key] = param.value;
 		}
 		
+		// Get query params
+		const queryParams = getCurrentQueryParams();
+		
 		saveFormState();
 		saveCustomParamsState();
+		saveQueryParamsState();
 		
 		// Extract method and uri from current route key
 		const [method, ...uriParts] = currentRouteKey.split(' ');
 		const uri = uriParts.join(' ');
 		
-		submitRequest(method, uri, bodyParams, pathParams, disabledParams);
+		submitRequest(method, uri, bodyParams, pathParams, disabledParams, queryParams);
 		closeModal();
 	});
 	
@@ -707,4 +914,7 @@ function initRequestModal(config) {
 			closeModal();
 		}
 	});
+	} catch (err) {
+		console.error('[Lapi] Error initializing request modal:', err);
+	}
 }

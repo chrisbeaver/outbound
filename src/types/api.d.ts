@@ -34,8 +34,8 @@ export interface RequestOptions {
 	headers?: Record<string, string>;
 	/** Override path parameters */
 	pathParams?: Record<string, string>;
-	/** Override query parameters */
-	queryParams?: Record<string, string>;
+	/** Override query parameters (array format to support duplicate keys) */
+	queryParams?: Array<{name: string, value: string}>;
 	/** Override body parameters */
 	bodyParams?: Record<string, unknown>;
 	/** Request timeout in milliseconds */

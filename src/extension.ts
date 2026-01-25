@@ -77,7 +77,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		let route: LaravelRoute | null = null;
 		console.log('[Lapi] Finding route at cursor position');
-		if (outputChannel) outputChannel.appendLine('[Lapi] Finding route at cursor position');
+		if (outputChannel) { outputChannel.appendLine('[Lapi] Finding route at cursor position'); }
 		try {
 			// Find the route that matches the current file and cursor position
 			route = findRouteAtPosition(document, position);
@@ -100,9 +100,9 @@ export async function activate(context: vscode.ExtensionContext) {
 			const candidates = allRoutes.filter(r => {
 				if (r.controllerPath) {
 					const normalized = r.controllerPath.replace(/\\/g, '/');
-					if (normalized === filePath || normalized.endsWith('/' + fileName + '.php')) return true;
+					if (normalized === filePath || normalized.endsWith('/' + fileName + '.php')) { return true; }
 				}
-				if (r.controller && r.controller.includes(fileName)) return true;
+				if (r.controller && r.controller.includes(fileName)) { return true; }
 				return false;
 			});
 
@@ -113,7 +113,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			const items = candidates.map(c => ({ label: `${c.method.split('|')[0].toUpperCase()} ${c.uri}`, route: c }));
 			const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Select route to test' });
-			if (!pick) return;
+			if (!pick) { return; }
 			route = pick.route;
 		}
 
@@ -186,7 +186,7 @@ function findRouteAtPosition(document: vscode.TextDocument, position: vscode.Pos
 			}
 
 			const routesByFqcn = routes.filter(route => {
-				if (!route.controller) return false;
+				if (!route.controller) { return false; }
 				// route.controller contains strings like App\\Http\\Controllers\\MyController@method
 				return route.controller.startsWith(fqcn) || route.controller.includes(className);
 			});
@@ -280,10 +280,10 @@ function findMethodRange(content: string, methodName: string): { start: number; 
 	for (const pat of patterns) {
 		const re = new RegExp(pat, 'g');
 		match = re.exec(content);
-		if (match) break;
+		if (match) { break; }
 	}
 
-	if (!match) return null;
+	if (!match) { return null; }
 
 	const methodStart = match.index;
 	const braceStart = methodStart + match[0].length - 1;
@@ -293,8 +293,8 @@ function findMethodRange(content: string, methodName: string): { start: number; 
 	let i = braceStart + 1;
 	while (i < content.length && braceCount > 0) {
 		const char = content[i];
-		if (char === '{') braceCount++;
-		else if (char === '}') braceCount--;
+		if (char === '{') { braceCount++; }
+		else if (char === '}') { braceCount--; }
 		i++;
 	}
 

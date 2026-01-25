@@ -105,10 +105,10 @@ export function buildCurlCommand(
 	
 	// Build URL with query parameters
 	let url = config.url;
-	if (Object.keys(config.queryParams).length > 0) {
-		const queryString = Object.entries(config.queryParams)
-			.filter(([, value]) => value !== '')
-			.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+	if (config.queryParams.length > 0) {
+		const queryString = config.queryParams
+			.filter(({value}) => value !== '')
+			.map(({name, value}) => `${encodeURIComponent(name)}=${encodeURIComponent(value)}`)
 			.join('&');
 		if (queryString) {
 			url += `?${queryString}`;
@@ -165,7 +165,7 @@ export function buildRequestConfig(
 	const method = route.method.split('|')[0].toUpperCase();
 	
 	// Build query and body params from route request params
-	const queryParams: Record<string, string> = { ...options.queryParams };
+	const queryParams: Array<{name: string, value: string}> = [...(options.queryParams || [])];
 	const bodyParams: Record<string, unknown> = { ...options.bodyParams };
 	
 	// Determine content type
@@ -191,8 +191,10 @@ export function buildRequestConfig(
 			}
 			
 			if (method === 'GET' || method === 'HEAD') {
-				if (!(paramName in queryParams)) {
-					queryParams[paramName] = '';
+				// For GET requests, add route params as query params if not already provided
+				const existingParam = queryParams.find(p => p.name === paramName);
+				if (!existingParam) {
+					queryParams.push({name: paramName, value: ''});
 				}
 			} else {
 				if (!(paramName in bodyParams)) {
@@ -245,10 +247,10 @@ export async function executeRequest(
 		try {
 			// Build full URL with query params
 			let fullUrl = config.url;
-			if (Object.keys(config.queryParams).length > 0) {
-				const queryString = Object.entries(config.queryParams)
-					.filter(([, value]) => value !== '')
-					.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+			if (config.queryParams.length > 0) {
+				const queryString = config.queryParams
+					.filter(({value}) => value !== '')
+					.map(({name, value}) => `${encodeURIComponent(name)}=${encodeURIComponent(value)}`)
 					.join('&');
 				if (queryString) {
 					fullUrl += `?${queryString}`;

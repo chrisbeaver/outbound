@@ -275,7 +275,7 @@ suite('generateRequestConfig Test Suite', () => {
 
 		const config = generateRequestConfig(route, 'http://localhost:8000');
 
-		assert.ok('search' in config.queryParams);
+		assert.ok(config.queryParams.some(p => p.name === 'search'));
 		assert.ok(!('search' in config.bodyParams));
 	});
 

@@ -124,6 +124,153 @@
     gap: 12px;
 }
 
+/* Collapsible sections */
+.collapsible {
+    margin-bottom: 16px;
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.collapsible-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background-color: var(--vscode-editor-inactiveSelectionBackground);
+    cursor: pointer;
+    user-select: none;
+}
+
+.collapsible-header:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.collapsible-header .section-title {
+    margin: 0;
+    flex: 1;
+}
+
+.collapsible-icon {
+    font-size: 10px;
+    color: var(--vscode-foreground);
+    transition: transform 0.2s ease;
+}
+
+.collapsible.open .collapsible-icon {
+    transform: rotate(90deg);
+}
+
+.collapsible-content {
+    display: none;
+    padding: 12px;
+    border-top: 1px solid var(--vscode-widget-border);
+}
+
+.collapsible.open .collapsible-content {
+    display: block;
+}
+
+/* Query params section */
+.query-params-count,
+.request-body-count {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.query-params-count:empty,
+.request-body-count:empty {
+    display: none;
+}
+
+.query-params-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.query-params-list:empty {
+    margin-bottom: 0;
+}
+
+.query-param-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.query-param-item input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-input-border);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--vscode-font-family);
+}
+
+.query-param-item input:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
+.query-param-item .query-param-name {
+    flex: 0 0 35%;
+    font-weight: 500;
+}
+
+.query-param-remove {
+    background: none;
+    border: none;
+    color: var(--vscode-errorForeground);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+.query-param-remove:hover {
+    opacity: 1;
+    background-color: var(--vscode-inputValidation-errorBackground);
+}
+
+.query-param-remove:active {
+    transform: scale(0.92);
+}
+
+.add-query-param-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.add-query-param-name,
+.add-query-param-value {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-input-border);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--vscode-font-family);
+}
+
+.add-query-param-name:focus,
+.add-query-param-value:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
 .request-body-section .section-title {
     display: none;
 }

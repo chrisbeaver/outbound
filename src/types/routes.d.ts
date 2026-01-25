@@ -77,8 +77,8 @@ export interface RouteRequestConfig {
 	method: string;
 	/** Headers to include */
 	headers: Record<string, string>;
-	/** Query parameters */
-	queryParams: Record<string, string>;
+	/** Query parameters (array format to support duplicate keys) */
+	queryParams: Array<{name: string, value: string}>;
 	/** Request body parameters */
 	bodyParams: Record<string, unknown>;
 	/** Path parameters */
