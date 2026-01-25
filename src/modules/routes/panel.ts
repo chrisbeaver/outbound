@@ -502,7 +502,8 @@ ${objectEditorJs}
 			persistedParams: ${JSON.stringify(persistedParams)},
 			persistedPathParams: ${JSON.stringify(persistedPathParams)},
 			persistedCustomParams: ${JSON.stringify(customParams)},
-			persistedQueryParams: ${JSON.stringify(queryParams)}
+			persistedQueryParams: ${JSON.stringify(queryParams)},
+			apiHost: ${JSON.stringify(getApiHost())}
 		});
 		initResponseModal({
 			vscode: vscode

@@ -16,6 +16,7 @@ let currentRouteFields = null;
 let currentPathSegments = null;
 let currentFieldsJson = null;
 let currentRouteMethod = null;
+let currentRouteUri = null;
 let hasPersistedState = false;
 let hasPersistedPathState = false;
 let hasPersistedCustomState = false;
@@ -47,12 +48,16 @@ window.openModal = function(method, uri, fieldsJson) {
  */
 function initRequestModal(config) {
 	try {
-	const { vscode, persistedParams, persistedPathParams, persistedCustomParams, persistedQueryParams } = config;
+	const { vscode, persistedParams, persistedPathParams, persistedCustomParams, persistedQueryParams, apiHost } = config;
+	
+	// Store apiHost for URL building
+	const baseApiHost = apiHost || 'http://localhost:8000';
 	
 	// Get DOM elements
 	const modalOverlay = document.getElementById('modal-overlay');
 	const modalTitle = document.getElementById('modal-title');
 	const modalSubtitle = document.getElementById('modal-subtitle');
+	const modalUrl = document.getElementById('modal-url');
 	const modalForm = document.getElementById('modal-form');
 	const modalClose = document.getElementById('modal-close');
 	const modalCloseBtn = document.getElementById('modal-close-btn');
@@ -154,6 +159,52 @@ function initRequestModal(config) {
 		modalSend.disabled = true;
 		
 		vscode.postMessage({ command: 'checkServerStatus' });
+	}
+	
+	// Build and display the full URL
+	function updateUrlDisplay(uri) {
+		if (!modalUrl) { return; }
+		
+		// Replace path parameters with their current values
+		let processedUri = uri;
+		if (currentPathSegments && currentPathSegments.length > 0) {
+			const pathInputs = uriSegmentsForm.querySelectorAll('input');
+			currentPathSegments.forEach(function(segment, index) {
+				const input = pathInputs[index];
+				const value = input ? input.value : '';
+				// Replace {param} or {param?} with value or placeholder
+				const placeholder = value || (segment.isOptional ? '' : '{' + segment.key + '}');
+				processedUri = processedUri.replace(new RegExp('\\{' + segment.key + '\\??' + '\\}'), placeholder);
+			});
+			// Clean up any double slashes from empty optional params
+			processedUri = processedUri.replace(/\/+/g, '/').replace(/\/$/, '');
+		}
+		
+		const host = baseApiHost.replace(/\/$/, '');
+		const path = processedUri.replace(/^\//, '');
+		let fullUrl = host + '/' + path;
+		
+		// Add query parameters
+		const queryParams = getCurrentQueryParams();
+		const enabledParams = queryParams.filter(function(p) { return p.enabled && p.name; });
+		if (enabledParams.length > 0) {
+			const queryString = enabledParams.map(function(p) {
+				return encodeURIComponent(p.name) + '=' + encodeURIComponent(p.value);
+			}).join('&');
+			fullUrl += '?' + queryString;
+		}
+		
+		modalUrl.textContent = fullUrl;
+		
+		// Make clickable for GET/HEAD requests
+		const isGetOrHead = currentRouteMethod === 'GET' || currentRouteMethod === 'HEAD';
+		if (isGetOrHead) {
+			modalUrl.href = fullUrl;
+			modalUrl.classList.add('clickable');
+		} else {
+			modalUrl.removeAttribute('href');
+			modalUrl.classList.remove('clickable');
+		}
 	}
 	
 	// Helper functions
@@ -498,6 +549,7 @@ function initRequestModal(config) {
 				item.classList.add('param-disabled');
 			}
 			saveQueryParamsState();
+			updateUrlDisplay(currentRouteUri);
 		});
 		item.appendChild(checkbox);
 		
@@ -506,7 +558,10 @@ function initRequestModal(config) {
 		nameInput.className = 'query-param-name';
 		nameInput.value = name || '';
 		nameInput.placeholder = 'Name';
-		nameInput.addEventListener('input', saveQueryParamsState);
+		nameInput.addEventListener('input', function() {
+			saveQueryParamsState();
+			updateUrlDisplay(currentRouteUri);
+		});
 		item.appendChild(nameInput);
 		
 		const valueInput = document.createElement('input');
@@ -514,7 +569,10 @@ function initRequestModal(config) {
 		valueInput.className = 'query-param-value';
 		valueInput.value = value || '';
 		valueInput.placeholder = 'Value';
-		valueInput.addEventListener('input', saveQueryParamsState);
+		valueInput.addEventListener('input', function() {
+			saveQueryParamsState();
+			updateUrlDisplay(currentRouteUri);
+		});
 		item.appendChild(valueInput);
 		
 		const removeBtn = document.createElement('button');
@@ -525,6 +583,7 @@ function initRequestModal(config) {
 			item.remove();
 			updateQueryParamsCount();
 			saveQueryParamsState();
+			updateUrlDisplay(currentRouteUri);
 		});
 		item.appendChild(removeBtn);
 		
@@ -662,11 +721,19 @@ function initRequestModal(config) {
 				const fieldEl = createFormField(segment.key, '', 'string', null, false);
 				// Add placeholder for optional segments
 				const input = fieldEl.querySelector('input');
-				if (input && segment.isOptional) {
-					input.placeholder = '(optional)';
+				if (input) {
+					if (segment.isOptional) {
+						input.placeholder = '(optional)';
+					}
+					// Update URL display when path param changes
+					input.addEventListener('input', function() {
+						updateUrlDisplay(currentRouteUri);
+					});
 				}
 				uriSegmentsForm.appendChild(fieldEl);
 			}
+			// Update URL display after reset
+			updateUrlDisplay(currentRouteUri);
 		}
 		
 		// Clear custom params
@@ -703,6 +770,7 @@ function initRequestModal(config) {
 		currentRouteKey = method + ' ' + uri;
 		currentFieldsJson = fieldsJson;
 		currentRouteMethod = method.split('|')[0].toUpperCase();
+		currentRouteUri = uri;
 		
 		// Parse fields and build form
 		const fields = JSON.parse(fieldsJson);
@@ -766,8 +834,14 @@ function initRequestModal(config) {
 				const fieldEl = createFormField(segment.key, value, 'string', null, false);
 				// Add placeholder for optional segments
 				const input = fieldEl.querySelector('input');
-				if (input && segment.isOptional) {
-					input.placeholder = '(optional)';
+				if (input) {
+					if (segment.isOptional) {
+						input.placeholder = '(optional)';
+					}
+					// Update URL display when path param changes
+					input.addEventListener('input', function() {
+						updateUrlDisplay(uri);
+					});
 				}
 				uriSegmentsForm.appendChild(fieldEl);
 			}
@@ -787,6 +861,7 @@ function initRequestModal(config) {
 		
 		modalTitle.innerHTML = titleText;
 		modalSubtitle.textContent = method + ' ' + uri;
+		updateUrlDisplay(uri);
 		
 		// Show/hide reset button
 		modalReset.style.display = (hasPersistedState || hasPersistedPathState) ? 'inline-block' : 'none';
@@ -850,6 +925,9 @@ function initRequestModal(config) {
 		// Priority: persisted > session > defaultQueryParams (from route validators for GET/HEAD)
 		const queryToRender = persistedQuery || sessionQuery || (defaultQueryParams || []);
 		renderQueryParams(queryToRender);
+		
+		// Update URL display after query params are rendered
+		updateUrlDisplay(uri);
 		
 		// Clear add query param inputs
 		addQueryParamName.value = '';
@@ -918,6 +996,7 @@ function initRequestModal(config) {
 			addQueryParamValue.value = '';
 			addQueryParamName.focus();
 			saveQueryParamsState();
+			updateUrlDisplay(currentRouteUri);
 		}
 	});
 	

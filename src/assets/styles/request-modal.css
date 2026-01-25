@@ -49,6 +49,24 @@
     margin-top: 4px;
 }
 
+.modal-url {
+    font-size: 11px;
+    color: var(--vscode-textLink-foreground);
+    margin-top: 4px;
+    font-family: var(--vscode-editor-font-family), monospace;
+    word-break: break-all;
+    text-decoration: none;
+    display: block;
+}
+
+.modal-url.clickable {
+    cursor: pointer;
+}
+
+.modal-url.clickable:hover {
+    text-decoration: underline;
+}
+
 .modal-close {
     background: none;
     border: none;
@@ -72,16 +90,20 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    margin-left: auto;
+    margin-right: 16px;
 }
 
 .modal-auth-label {
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 600;
-    color: var(--vscode-foreground);
+    color: var(--vscode-descriptionForeground);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .modal-auth-select {
-    padding: 4px 8px;
+    padding: 6px 10px;
     border: 1px solid var(--vscode-input-border);
     background-color: var(--vscode-input-background);
     color: var(--vscode-input-foreground);
@@ -89,7 +111,7 @@
     font-size: 12px;
     font-family: var(--vscode-font-family);
     cursor: pointer;
-    min-width: 120px;
+    min-width: 160px;
 }
 
 .modal-auth-select:focus {
@@ -314,11 +336,28 @@
 }
 
 .modal-footer {
-    padding: 12px 20px;
+    padding: 12px 20px 0 20px;
     border-top: 1px solid var(--vscode-widget-border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.modal-footer-buttons {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
+    flex-wrap: wrap;
+}
+
+.modal-taskbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 0 -20px;
+    background-color: var(--vscode-editor-inactiveSelectionBackground);
+    border-top: 1px solid var(--vscode-widget-border);
 }
 
 .modal-btn {
@@ -330,6 +369,7 @@
     cursor: pointer;
     font-size: 13px;
     font-family: var(--vscode-font-family);
+    white-space: nowrap;
 }
 
 .modal-btn:hover:not(:disabled) {
@@ -378,13 +418,24 @@
 
 .copy-success {
     color: var(--vscode-testing-iconPassed);
-    font-size: 12px;
-    margin-right: auto;
-    display: none;
+    font-size: 11px;
+    visibility: hidden;
+    white-space: nowrap;
+    text-align: left;
 }
 
 .copy-success.show {
-    display: block;
+    visibility: visible;
+}
+
+/* Light green copy buttons */
+.modal-btn-copy {
+    background-color: #2e5c3a;
+    color: #c8e6c9;
+}
+
+.modal-btn-copy:hover {
+    background-color: #3a7348;
 }
 
 .persisted-indicator {
@@ -548,6 +599,10 @@
     gap: 6px;
     font-size: 11px;
     color: var(--vscode-descriptionForeground);
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--vscode-widget-border);
 }
 
 .server-status-light {
