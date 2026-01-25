@@ -6,6 +6,7 @@ import { getRouteStorage } from './manager';
 import { executeRequest, checkServerStatus } from '../api/request';
 
 const WORKSPACE_STATE_KEY = 'lapi.requestParams';
+const PATH_PARAMS_STATE_KEY = 'lapi.pathParams';
 
 /**
  * Manages the Routes Table webview panel
@@ -103,7 +104,7 @@ export class RoutesPanel {
 		this._panel.webview.onDidReceiveMessage(
 			async (message) => {
 				if (message.command === 'executeRequest') {
-					const { method, uri, bodyParams } = message;
+					const { method, uri, bodyParams, pathParams } = message;
 					const route = getRouteStorage().get(method, uri);
 					
 					if (route) {
@@ -121,10 +122,14 @@ export class RoutesPanel {
 						this._outputChannel.appendLine('');
 						
 						try {
-							// Pass bodyParams from the edited form
-							const options = bodyParams && Object.keys(bodyParams).length > 0 
-								? { bodyParams } 
-								: {};
+							// Pass bodyParams and pathParams from the edited form
+							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string> } = {};
+							if (bodyParams && Object.keys(bodyParams).length > 0) {
+								options.bodyParams = bodyParams;
+							}
+							if (pathParams && Object.keys(pathParams).length > 0) {
+								options.pathParams = pathParams;
+							}
 							const response = await executeRequest(route, options);
 							
 							this._outputChannel.appendLine(`Status: ${response.statusCode} ${response.success ? '✓' : '✗'}`);
@@ -160,6 +165,14 @@ export class RoutesPanel {
 					// Clear persisted params for a route (reset to defaults)
 					const { routeKey } = message;
 					await this._clearRequestParams(routeKey);
+				} else if (message.command === 'savePathParams') {
+					// Save path params to workspace state
+					const { routeKey, params } = message;
+					await this._savePathParams(routeKey, params);
+				} else if (message.command === 'clearPathParams') {
+					// Clear path params for a route
+					const { routeKey } = message;
+					await this._clearPathParams(routeKey);
 				} else if (message.command === 'checkServerStatus') {
 					// Check if the API server is available
 					const isAvailable = await checkServerStatus();
@@ -208,6 +221,18 @@ export class RoutesPanel {
 		const allParams = this._context.workspaceState.get<Record<string, Record<string, unknown>>>(WORKSPACE_STATE_KEY, {});
 		delete allParams[routeKey];
 		await this._context.workspaceState.update(WORKSPACE_STATE_KEY, allParams);
+	}
+
+	private async _savePathParams(routeKey: string, params: Record<string, string>): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Record<string, string>>>(PATH_PARAMS_STATE_KEY, {});
+		allParams[routeKey] = params;
+		await this._context.workspaceState.update(PATH_PARAMS_STATE_KEY, allParams);
+	}
+
+	private async _clearPathParams(routeKey: string): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Record<string, string>>>(PATH_PARAMS_STATE_KEY, {});
+		delete allParams[routeKey];
+		await this._context.workspaceState.update(PATH_PARAMS_STATE_KEY, allParams);
 	}
 
 	public dispose() {
@@ -264,6 +289,7 @@ export class RoutesPanel {
 		const routes = getRouteStorage().getAll();
 		// Get all persisted params to pass to webview
 		const persistedParams = this._context.workspaceState.get<Record<string, Record<string, unknown>>>(WORKSPACE_STATE_KEY, {});
+		const persistedPathParams = this._context.workspaceState.get<Record<string, Record<string, string>>>(PATH_PARAMS_STATE_KEY, {});
 
 		// Load asset files
 		const assetsPath = path.join(this._extensionUri.fsPath, 'src', 'assets');
@@ -317,7 +343,8 @@ ${requestModalJs}
 		initRoutesTable();
 		initRequestModal({
 			vscode: vscode,
-			persistedParams: ${JSON.stringify(persistedParams)}
+			persistedParams: ${JSON.stringify(persistedParams)},
+			persistedPathParams: ${JSON.stringify(persistedPathParams)}
 		});
 		
 		// Handle controller link clicks

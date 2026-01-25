@@ -5,29 +5,35 @@
  * Variables to be initialized:
  * - vscode: VS Code API instance
  * - persistedParams: Object of persisted params from workspace state
+ * - persistedPathParams: Object of persisted path params from workspace state
  */
 
 // Modal state
 let currentRouteKey = null;
 let currentRouteFields = null;
+let currentPathSegments = null;
 let hasPersistedState = false;
+let hasPersistedPathState = false;
 let serverIsOnline = false;
 let serverPollInterval = null;
 
 // Default values from route definitions (rebuilt on refresh)
 const routeDefaults = {};
+const pathSegmentDefaults = {};
 
 // In-memory state for current session edits (not yet saved)
 const sessionState = {};
+const pathSessionState = {};
 
 /**
  * Initialize the request modal
  * @param {object} config - Configuration object
  * @param {object} config.vscode - VS Code API instance
  * @param {object} config.persistedParams - Persisted params from workspace state
+ * @param {object} config.persistedPathParams - Persisted path params from workspace state
  */
 function initRequestModal(config) {
-	const { vscode, persistedParams } = config;
+	const { vscode, persistedParams, persistedPathParams } = config;
 	
 	// Get DOM elements
 	const modalOverlay = document.getElementById('modal-overlay');
@@ -43,6 +49,9 @@ function initRequestModal(config) {
 	const jsonError = document.getElementById('json-error');
 	const serverStatusLight = document.getElementById('server-status-light');
 	const serverStatusText = document.getElementById('server-status-text');
+	const uriSegmentsSection = document.getElementById('uri-segments-section');
+	const uriSegmentsForm = document.getElementById('uri-segments-form');
+	const bodySectionTitle = document.getElementById('body-section-title');
 	
 	// Listen for server status response from extension
 	window.addEventListener('message', function(event) {
@@ -117,11 +126,35 @@ function initRequestModal(config) {
 		return defaults;
 	}
 	
+	function extractPathSegments(uri) {
+		const segments = [];
+		const regex = /\{(\w+)\??}/g;
+		let match;
+		while ((match = regex.exec(uri)) !== null) {
+			segments.push({
+				key: match[1],
+				value: '',
+				isOptional: match[0].includes('?')
+			});
+		}
+		return segments;
+	}
+	
 	function hasChanges() {
 		if (!currentRouteKey || !routeDefaults[currentRouteKey]) return false;
 		const current = getFormJson(modalForm);
 		const defaults = routeDefaults[currentRouteKey];
 		return JSON.stringify(current) !== JSON.stringify(defaults);
+	}
+	
+	function hasPathChanges() {
+		if (!currentRouteKey || !currentPathSegments || currentPathSegments.length === 0) return false;
+		const current = getFormJson(uriSegmentsForm);
+		// Path segments have empty defaults, so any non-empty value is a change
+		for (const key in current) {
+			if (current[key] !== '') return true;
+		}
+		return false;
 	}
 	
 	function persistParams(routeKey, params) {
@@ -141,24 +174,57 @@ function initRequestModal(config) {
 		delete persistedParams[routeKey];
 	}
 	
-	function submitRequest(method, uri, bodyParams) {
+	function persistPathParams(routeKey, params) {
+		vscode.postMessage({
+			command: 'savePathParams',
+			routeKey: routeKey,
+			params: params
+		});
+		persistedPathParams[routeKey] = params;
+	}
+	
+	function clearPersistedPathParams(routeKey) {
+		vscode.postMessage({
+			command: 'clearPathParams',
+			routeKey: routeKey
+		});
+		delete persistedPathParams[routeKey];
+	}
+	
+	function submitRequest(method, uri, bodyParams, pathParams) {
 		vscode.postMessage({
 			command: 'executeRequest',
 			method: method,
 			uri: uri,
-			bodyParams: bodyParams
+			bodyParams: bodyParams,
+			pathParams: pathParams
 		});
 	}
 	
 	function saveFormState() {
-		if (currentRouteKey && currentRouteFields && currentRouteFields.length > 0) {
-			const currentValues = getFormJson(modalForm);
-			sessionState[currentRouteKey] = currentValues;
+		if (currentRouteKey) {
+			// Save body params
+			if (currentRouteFields && currentRouteFields.length > 0) {
+				const currentValues = getFormJson(modalForm);
+				sessionState[currentRouteKey] = currentValues;
+				
+				// If values differ from defaults, persist to workspace state
+				if (hasChanges()) {
+					persistParams(currentRouteKey, currentValues);
+					hasPersistedState = true;
+				}
+			}
 			
-			// If values differ from defaults, persist to workspace state
-			if (hasChanges()) {
-				persistParams(currentRouteKey, currentValues);
-				hasPersistedState = true;
+			// Save path params
+			if (currentPathSegments && currentPathSegments.length > 0) {
+				const pathValues = getFormJson(uriSegmentsForm);
+				pathSessionState[currentRouteKey] = pathValues;
+				
+				// Persist path params if any have values
+				if (hasPathChanges()) {
+					persistPathParams(currentRouteKey, pathValues);
+					hasPersistedPathState = true;
+				}
 			}
 		}
 	}
@@ -170,22 +236,43 @@ function initRequestModal(config) {
 	}
 	
 	function resetToDefaults() {
-		if (!currentRouteKey || !currentRouteFields) return;
+		if (!currentRouteKey) return;
 		
-		// Clear persisted state
-		clearPersistedParams(currentRouteKey);
-		delete sessionState[currentRouteKey];
-		hasPersistedState = false;
+		// Clear persisted body params
+		if (currentRouteFields && currentRouteFields.length > 0) {
+			clearPersistedParams(currentRouteKey);
+			delete sessionState[currentRouteKey];
+			hasPersistedState = false;
+			
+			// Rebuild body form with defaults
+			modalForm.innerHTML = '';
+			for (const field of currentRouteFields) {
+				const fieldEl = createFormField(field.key, field.value, field.type, validateFormField);
+				modalForm.appendChild(fieldEl);
+			}
+		}
 		
-		// Rebuild form with defaults
-		modalForm.innerHTML = '';
-		for (const field of currentRouteFields) {
-			const fieldEl = createFormField(field.key, field.value, field.type, validateFormField);
-			modalForm.appendChild(fieldEl);
+		// Clear persisted path params
+		if (currentPathSegments && currentPathSegments.length > 0) {
+			clearPersistedPathParams(currentRouteKey);
+			delete pathSessionState[currentRouteKey];
+			hasPersistedPathState = false;
+			
+			// Rebuild path segments form with empty defaults
+			uriSegmentsForm.innerHTML = '';
+			for (const segment of currentPathSegments) {
+				const fieldEl = createFormField(segment.key, '', 'string', null);
+				// Add placeholder for optional segments
+				const input = fieldEl.querySelector('input');
+				if (input && segment.isOptional) {
+					input.placeholder = '(optional)';
+				}
+				uriSegmentsForm.appendChild(fieldEl);
+			}
 		}
 		
 		// Update title to remove saved indicator
-		const paramCount = currentRouteFields.length;
+		const paramCount = currentRouteFields ? currentRouteFields.length : 0;
 		modalTitle.innerHTML = paramCount > 0 
 			? 'Request Body (' + paramCount + ' param' + (paramCount !== 1 ? 's' : '') + ')'
 			: 'Request Body';
@@ -206,6 +293,10 @@ function initRequestModal(config) {
 		currentRouteFields = fields;
 		modalForm.innerHTML = '';
 		
+		// Extract and handle path segments
+		currentPathSegments = extractPathSegments(uri);
+		uriSegmentsForm.innerHTML = '';
+		
 		// Store defaults for this route
 		routeDefaults[currentRouteKey] = buildDefaults(fields);
 		
@@ -213,13 +304,41 @@ function initRequestModal(config) {
 		const persisted = persistedParams[currentRouteKey];
 		hasPersistedState = !!persisted;
 		
+		const persistedPath = persistedPathParams[currentRouteKey];
+		hasPersistedPathState = !!persistedPath;
+		
+		// Handle URI segments section
+		if (currentPathSegments.length > 0) {
+			uriSegmentsSection.style.display = 'block';
+			
+			for (const segment of currentPathSegments) {
+				// Priority: persisted > session > default (empty)
+				let value = '';
+				if (persistedPath && persistedPath.hasOwnProperty(segment.key)) {
+					value = persistedPath[segment.key];
+				} else if (pathSessionState[currentRouteKey] && pathSessionState[currentRouteKey].hasOwnProperty(segment.key)) {
+					value = pathSessionState[currentRouteKey][segment.key];
+				}
+				
+				const fieldEl = createFormField(segment.key, value, 'string', null);
+				// Add placeholder for optional segments
+				const input = fieldEl.querySelector('input');
+				if (input && segment.isOptional) {
+					input.placeholder = '(optional)';
+				}
+				uriSegmentsForm.appendChild(fieldEl);
+			}
+		} else {
+			uriSegmentsSection.style.display = 'none';
+		}
+		
 		// Update title with param count
 		const paramCount = fields.length;
 		let titleText = paramCount > 0 
 			? 'Request Body (' + paramCount + ' param' + (paramCount !== 1 ? 's' : '') + ')'
 			: 'Request Body';
 		
-		if (hasPersistedState) {
+		if (hasPersistedState || hasPersistedPathState) {
 			titleText += ' <span class="persisted-indicator">● saved</span>';
 		}
 		
@@ -227,7 +346,7 @@ function initRequestModal(config) {
 		modalSubtitle.textContent = method + ' ' + uri;
 		
 		// Show/hide reset button
-		modalReset.style.display = hasPersistedState ? 'inline-block' : 'none';
+		modalReset.style.display = (hasPersistedState || hasPersistedPathState) ? 'inline-block' : 'none';
 		
 		if (fields.length === 0) {
 			modalForm.innerHTML = '<div style="color: var(--vscode-descriptionForeground); font-style: italic;">No request parameters</div>';
@@ -260,7 +379,7 @@ function initRequestModal(config) {
 	
 	// Send request from modal
 	modalSend.addEventListener('click', function() {
-		// Check for validation errors
+		// Check for validation errors in body params
 		const invalidFields = modalForm.querySelectorAll('input.invalid');
 		if (invalidFields.length > 0) {
 			jsonError.textContent = 'Please fix validation errors before sending';
@@ -269,13 +388,16 @@ function initRequestModal(config) {
 		}
 		
 		const bodyParams = getFormJson(modalForm);
+		const pathParams = currentPathSegments && currentPathSegments.length > 0 
+			? getFormJson(uriSegmentsForm) 
+			: {};
 		saveFormState();
 		
 		// Extract method and uri from current route key
 		const [method, ...uriParts] = currentRouteKey.split(' ');
 		const uri = uriParts.join(' ');
 		
-		submitRequest(method, uri, bodyParams);
+		submitRequest(method, uri, bodyParams, pathParams);
 		closeModal();
 	});
 	

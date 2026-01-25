@@ -69,6 +69,35 @@
     flex: 1;
 }
 
+.section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    margin: 0 0 12px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.uri-segments-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.uri-segments-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.request-body-section .section-title {
+    display: none;
+}
+
+.uri-segments-section + .request-body-section .section-title {
+    display: block;
+}
+
 .modal-form {
     display: flex;
     flex-direction: column;
