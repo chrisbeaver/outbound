@@ -39,6 +39,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register Test Endpoint command (context menu in PHP files)
 	const testEndpointCommand = vscode.commands.registerCommand('lapi.testEndpoint', async () => {
 		vscode.window.showInformationMessage('Lapi: Test Endpoint triggered');
+		console.log('[Lapi] Test Endpoint command invoked');
 		if (outputChannel) {
 			outputChannel.appendLine('[Lapi] Test Endpoint command invoked');
 			outputChannel.show(true);
@@ -53,6 +54,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		const position = editor.selection.active;
 
 		let route: LaravelRoute | null = null;
+		console.log('[Lapi] Finding route at cursor position');
+		if (outputChannel) outputChannel.appendLine('[Lapi] Finding route at cursor position');
 		try {
 			// Find the route that matches the current file and cursor position
 			route = findRouteAtPosition(document, position);
@@ -61,13 +64,35 @@ export async function activate(context: vscode.ExtensionContext) {
 				outputChannel.appendLine(`[Lapi] Error while finding route: ${err}`);
 				outputChannel.show(true);
 			}
+			console.error('[Lapi] Error while finding route:', err);
 			vscode.window.showErrorMessage('Error finding route. See Lapi output for details.');
 			return;
 		}
 
 		if (!route) {
-			vscode.window.showWarningMessage('No route found for the current position. Make sure you are inside a controller method that is registered as a route.');
-			return;
+			// Try to present a quick pick of candidate routes for this file
+			const storage = getRouteStorage();
+			const allRoutes = storage.getAll();
+			const filePath = document.uri.fsPath.replace(/\\/g, '/');
+			const fileName = path.basename(filePath, '.php');
+			const candidates = allRoutes.filter(r => {
+				if (r.controllerPath) {
+					const normalized = r.controllerPath.replace(/\\/g, '/');
+					if (normalized === filePath || normalized.endsWith('/' + fileName + '.php')) return true;
+				}
+				if (r.controller && r.controller.includes(fileName)) return true;
+				return false;
+			});
+
+			if (candidates.length === 0) {
+				vscode.window.showWarningMessage('No route found for the current position. Make sure you are inside a controller method that is registered as a route.');
+				return;
+			}
+
+			const items = candidates.map(c => ({ label: `${c.method.split('|')[0].toUpperCase()} ${c.uri}`, route: c }));
+			const pick = await vscode.window.showQuickPick(items, { placeHolder: 'Select route to test' });
+			if (!pick) return;
+			route = pick.route;
 		}
 
 		// Open the routes panel with this specific route
@@ -218,31 +243,36 @@ function findRouteByMethod(documentText: string, cursorOffset: number, routes: L
  * Find the start and end offset of a method in PHP code
  */
 function findMethodRange(content: string, methodName: string): { start: number; end: number } | null {
-	// Match the method signature
-	const methodRegex = new RegExp(
-		`(?:public|protected|private)\\s+function\\s+${methodName}\\s*\\([^)]*\\)\\s*(?::\\s*[^{]+)?\\s*\\{`,
-		'g'
-	);
+	// Try several regex patterns to locate the function declaration, to handle
+	// attributes, different visibility modifiers, return types and newlines.
+	const patterns = [
+		// typical: public function name(...) { or protected/private
+		`(?:public|protected|private|static|final|abstract)\\s+function\\s+${methodName}\\s*\\([^)]*\\)\\s*(?::\\s*[^\\{]+)?\\s*\\{`,
+		// fallback without visibility (in case attributes or other tokens precede)
+		`function\\s+${methodName}\\s*\\([^)]*\\)\\s*(?::\\s*[^\\{]+)?\\s*\\{`,
+		// very permissive: match function and then first opening brace
+		`function\\s+${methodName}\\s*\\([^)]*\\)[\\s\\S]*?\\{`
+	];
 
-	const match = methodRegex.exec(content);
-	if (!match) {
-		return null;
+	let match: RegExpExecArray | null = null;
+	for (const pat of patterns) {
+		const re = new RegExp(pat, 'g');
+		match = re.exec(content);
+		if (match) break;
 	}
 
-	const methodStart = match.index;
-	const braceStart = match.index + match[0].length - 1;
+	if (!match) return null;
 
-	// Find the matching closing brace
+	const methodStart = match.index;
+	const braceStart = methodStart + match[0].length - 1;
+
+	// Find the matching closing brace taking nesting into account
 	let braceCount = 1;
 	let i = braceStart + 1;
-
 	while (i < content.length && braceCount > 0) {
 		const char = content[i];
-		if (char === '{') {
-			braceCount++;
-		} else if (char === '}') {
-			braceCount--;
-		}
+		if (char === '{') braceCount++;
+		else if (char === '}') braceCount--;
 		i++;
 	}
 

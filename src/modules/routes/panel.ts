@@ -220,15 +220,24 @@ export class RoutesPanel {
 	}
 
 	public _openModalForRoute(route: LaravelRoute) {
-		const method = this._escapeHtml(route.method);
-		const uri = this._escapeHtml(route.uri);
-		const fieldsJson = this._generateFieldsJson(route);
-		
+		// Send raw values (unescaped) to the webview so it can JSON.parse the fields correctly.
+		const method = route.method || '';
+		const uri = route.uri || '';
+
+		// Build the fields array (same structure as _generateFieldsJson but without HTML-escaping)
+		const fields: Array<{key: string, value: unknown, type: string}> = [];
+		if (route.requestParams && route.requestParams.length > 0) {
+			for (const param of route.requestParams) {
+				if (param.isPathParam) continue;
+				fields.push({ key: param.name, value: this._getExampleValue(param), type: param.type || 'string' });
+			}
+		}
+
 		this._panel.webview.postMessage({
 			command: 'openModal',
 			method: method,
 			uri: uri,
-			fields: fieldsJson
+			fields: JSON.stringify(fields)
 		});
 	}
 

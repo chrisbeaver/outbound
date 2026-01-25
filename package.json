@@ -10,7 +10,9 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:**/artisan"
+    "workspaceContains:**/artisan",
+    "onCommand:lapi.testEndpoint",
+    "onCommand:lapi.displayRoutesTable"
   ],
   "main": "./out/extension.js",
   "contributes": {
