@@ -398,7 +398,9 @@ function initRequestModal(config) {
 		
 		if (fields.length === 0) {
 			modalForm.innerHTML = '<div style="color: var(--vscode-descriptionForeground); font-style: italic;">No request parameters</div>';
+			modalCopy.disabled = true;
 		} else {
+			modalCopy.disabled = false;
 			for (const field of fields) {
 				// Priority: persisted > session > default
 				let value = field.value;

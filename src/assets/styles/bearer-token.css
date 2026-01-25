@@ -57,6 +57,11 @@
     background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+.bearer-modal-close:active {
+    transform: scale(0.92);
+    opacity: 0.8;
+}
+
 .bearer-modal-body {
     padding: 16px 20px;
     overflow-y: auto;
@@ -143,6 +148,11 @@
     background-color: var(--vscode-inputValidation-errorBackground);
 }
 
+.bearer-token-delete:active {
+    transform: scale(0.92);
+    opacity: 0.8;
+}
+
 /* Add form */
 .bearer-add-form {
     display: flex;
@@ -197,6 +207,11 @@
     background-color: var(--vscode-button-hoverBackground);
 }
 
+.bearer-add-btn:active {
+    transform: scale(0.96);
+    opacity: 0.9;
+}
+
 .bearer-add-icon {
     font-size: 16px;
     font-weight: bold;
@@ -226,6 +241,11 @@
 
 .bearer-modal-btn-secondary:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.bearer-modal-btn:active {
+    transform: scale(0.96);
+    opacity: 0.9;
 }
 
 .bearer-modal-btn-danger {
@@ -343,6 +363,11 @@
 .bearer-header-settings:hover {
     opacity: 1;
     background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.bearer-header-settings:active {
+    transform: scale(0.92);
+    opacity: 0.8;
 }
 
 .bearer-status {

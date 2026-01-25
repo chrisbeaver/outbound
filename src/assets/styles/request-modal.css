@@ -63,6 +63,11 @@
     background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+.modal-close:active {
+    transform: scale(0.92);
+    opacity: 0.8;
+}
+
 .modal-auth-token {
     display: flex;
     flex-direction: column;
@@ -159,6 +164,11 @@
 .modal-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.modal-btn:active:not(:disabled) {
+    transform: scale(0.96);
+    opacity: 0.9;
 }
 
 .modal-btn-secondary {

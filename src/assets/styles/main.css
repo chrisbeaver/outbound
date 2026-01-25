@@ -58,6 +58,11 @@ h1 {
     cursor: not-allowed;
 }
 
+.btn:active:not(:disabled) {
+    transform: scale(0.96);
+    opacity: 0.9;
+}
+
 .btn-primary {
     background-color: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
