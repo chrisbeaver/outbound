@@ -179,3 +179,52 @@ h1 {
     padding: 40px;
     color: var(--vscode-descriptionForeground);
 }
+
+/* Object/Array field styles */
+.object-field-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.object-field-display {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-input-border);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-descriptionForeground);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--vscode-font-family);
+    cursor: pointer;
+}
+
+.object-field-display:hover {
+    background-color: var(--vscode-list-hoverBackground);
+    border-color: var(--vscode-focusBorder);
+}
+
+.object-field-icon {
+    color: var(--vscode-textLink-foreground);
+    font-family: var(--vscode-editor-font-family);
+    font-weight: bold;
+}
+
+.object-field-edit-btn {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--vscode-font-family);
+}
+
+.object-field-edit-btn:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+.object-field-edit-btn:active {
+    transform: scale(0.96);
+}

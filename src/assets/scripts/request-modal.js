@@ -260,6 +260,7 @@ function initRequestModal(config) {
 		const params = [];
 		const customFields = customParamsList.querySelectorAll('.custom-param-field');
 		for (const field of customFields) {
+			const checkbox = field.querySelector('.custom-param-checkbox');
 			const input = field.querySelector('input[data-type], select[data-type]');
 			if (input) {
 				const key = input.dataset.key;
@@ -279,20 +280,37 @@ function initRequestModal(config) {
 					}
 				}
 				
-				params.push({ key, type, value });
+				params.push({ key, type, value, enabled: checkbox ? checkbox.checked : true });
 			}
 		}
 		return params;
 	}
 	
-	function addCustomParam(name, type, value) {
+	function addCustomParam(name, type, value, enabled) {
 		if (!name.trim()) { return; }
 		
 		const field = document.createElement('div');
 		field.className = 'custom-param-field';
+		if (enabled === false) {
+			field.classList.add('param-disabled');
+		}
 		
 		const header = document.createElement('div');
 		header.className = 'custom-param-header';
+		
+		const checkbox = document.createElement('input');
+		checkbox.type = 'checkbox';
+		checkbox.className = 'custom-param-checkbox';
+		checkbox.checked = enabled !== false;
+		checkbox.addEventListener('change', function() {
+			if (this.checked) {
+				field.classList.remove('param-disabled');
+			} else {
+				field.classList.add('param-disabled');
+			}
+			saveCustomParamsState();
+		});
+		header.appendChild(checkbox);
 		
 		const label = document.createElement('label');
 		label.innerHTML = name + ' <span class="field-type">(' + type + ')</span>';
@@ -316,27 +334,74 @@ function initRequestModal(config) {
 			input = document.createElement('select');
 			input.innerHTML = '<option value="true">true</option><option value="false">false</option>';
 			input.value = String(value);
+			input.dataset.key = name;
+			input.dataset.type = type;
+			input.dataset.custom = 'true';
+			field.appendChild(input);
 		} else if (type === 'date') {
 			input = document.createElement('input');
 			input.type = 'date';
 			input.value = value || new Date().toISOString().split('T')[0];
+			input.dataset.key = name;
+			input.dataset.type = type;
+			input.dataset.custom = 'true';
+			field.appendChild(input);
 		} else if (type === 'file') {
 			input = document.createElement('input');
 			input.type = 'file';
+			input.dataset.key = name;
+			input.dataset.type = type;
+			input.dataset.custom = 'true';
+			field.appendChild(input);
+		} else if (type === 'array' || type === 'object') {
+			// Use object editor for arrays and objects
+			const wrapper = document.createElement('div');
+			wrapper.className = 'object-field-wrapper';
+			
+			input = document.createElement('input');
+			input.type = 'hidden';
+			input.value = typeof value === 'string' ? value : JSON.stringify(value);
+			input.dataset.key = name;
+			input.dataset.type = type;
+			input.dataset.custom = 'true';
+			wrapper.appendChild(input);
+			
+			const display = document.createElement('div');
+			display.className = 'object-field-display';
+			display.dataset.key = name;
+			display.dataset.type = type;
+			const parsedValue = typeof value === 'string' ? JSON.parse(value || (type === 'array' ? '[]' : '{}')) : value;
+			updateObjectFieldDisplay(display, parsedValue, type);
+			
+			const openEditor = function() {
+				const currentValue = JSON.parse(input.value || (type === 'array' ? '[]' : '{}'));
+				window.openObjectEditor(name, currentValue, type === 'array', function(newValue) {
+					input.value = JSON.stringify(newValue);
+					updateObjectFieldDisplay(display, newValue, type);
+					saveCustomParamsState();
+				});
+			};
+			
+			display.addEventListener('click', openEditor);
+			
+			const editBtn = document.createElement('button');
+			editBtn.type = 'button';
+			editBtn.className = 'object-field-edit-btn';
+			editBtn.textContent = 'Edit';
+			editBtn.addEventListener('click', openEditor);
+			
+			wrapper.appendChild(display);
+			wrapper.appendChild(editBtn);
+			field.appendChild(wrapper);
 		} else {
 			input = document.createElement('input');
 			input.type = type === 'integer' ? 'number' : 'text';
-			if (type === 'array' || type === 'object') {
-				input.value = typeof value === 'string' ? value : JSON.stringify(value);
-			} else {
-				input.value = value;
-			}
+			input.value = value;
+			input.dataset.key = name;
+			input.dataset.type = type;
+			input.dataset.custom = 'true';
+			field.appendChild(input);
 		}
-		
-		input.dataset.key = name;
-		input.dataset.type = type;
-		input.dataset.custom = 'true';
-		field.appendChild(input);
 		
 		customParamsList.appendChild(field);
 		updateCopyButtonState();
@@ -347,7 +412,7 @@ function initRequestModal(config) {
 		customParamsList.innerHTML = '';
 		if (params && params.length > 0) {
 			for (const param of params) {
-				addCustomParam(param.key, param.type, param.value);
+				addCustomParam(param.key, param.type, param.value, param.enabled);
 			}
 		}
 	}
@@ -389,18 +454,40 @@ function initRequestModal(config) {
 		const params = [];
 		const items = queryParamsList.querySelectorAll('.query-param-item');
 		for (const item of items) {
+			const checkbox = item.querySelector('.query-param-checkbox');
 			const nameInput = item.querySelector('.query-param-name');
 			const valueInput = item.querySelector('.query-param-value');
 			if (nameInput && valueInput && nameInput.value.trim()) {
-				params.push({ name: nameInput.value.trim(), value: valueInput.value });
+				params.push({ 
+					name: nameInput.value.trim(), 
+					value: valueInput.value,
+					enabled: checkbox ? checkbox.checked : true
+				});
 			}
 		}
 		return params;
 	}
 	
-	function addQueryParam(name, value) {
+	function addQueryParam(name, value, enabled) {
 		const item = document.createElement('div');
 		item.className = 'query-param-item';
+		if (enabled === false) {
+			item.classList.add('param-disabled');
+		}
+		
+		const checkbox = document.createElement('input');
+		checkbox.type = 'checkbox';
+		checkbox.className = 'query-param-checkbox';
+		checkbox.checked = enabled !== false;
+		checkbox.addEventListener('change', function() {
+			if (this.checked) {
+				item.classList.remove('param-disabled');
+			} else {
+				item.classList.add('param-disabled');
+			}
+			saveQueryParamsState();
+		});
+		item.appendChild(checkbox);
 		
 		const nameInput = document.createElement('input');
 		nameInput.type = 'text';
@@ -437,7 +524,7 @@ function initRequestModal(config) {
 		queryParamsList.innerHTML = '';
 		if (params && params.length > 0) {
 			for (const param of params) {
-				addQueryParam(param.name, param.value);
+				addQueryParam(param.name, param.value, param.enabled);
 			}
 		}
 		updateQueryParamsCount();

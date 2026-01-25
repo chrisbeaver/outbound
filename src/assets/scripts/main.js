@@ -26,6 +26,22 @@ function initTableSearch(searchInputId, tableId) {
 }
 
 /**
+ * Update the display for an object/array field
+ * @param {HTMLElement} display - Display element
+ * @param {*} value - Current value
+ * @param {string} type - Field type (array or object)
+ */
+function updateObjectFieldDisplay(display, value, type) {
+	if (type === 'array') {
+		const count = Array.isArray(value) ? value.length : 0;
+		display.innerHTML = '<span class="object-field-icon">[ ]</span> ' + count + ' item' + (count !== 1 ? 's' : '');
+	} else {
+		const count = value && typeof value === 'object' ? Object.keys(value).length : 0;
+		display.innerHTML = '<span class="object-field-icon">{ }</span> ' + count + ' field' + (count !== 1 ? 's' : '');
+	}
+}
+
+/**
  * Create a form field element
  * @param {string} key - Field name/key
  * @param {*} value - Field value
@@ -80,16 +96,57 @@ function createFormField(key, value, type, onValidate, showEnableCheckbox, enabl
 		input = document.createElement('select');
 		input.innerHTML = '<option value="true">true</option><option value="false">false</option>';
 		input.value = String(value);
+	} else if (type === 'array' || type === 'object') {
+		// Create a clickable field that opens the object editor
+		const wrapper = document.createElement('div');
+		wrapper.className = 'object-field-wrapper';
+		
+		input = document.createElement('input');
+		input.type = 'hidden';
+		input.value = JSON.stringify(value);
+		input.dataset.key = key;
+		input.dataset.type = type;
+		wrapper.appendChild(input);
+		
+		const display = document.createElement('div');
+		display.className = 'object-field-display';
+		display.dataset.key = key;
+		display.dataset.type = type;
+		updateObjectFieldDisplay(display, value, type);
+		
+		// Open editor on click
+		const openEditor = function() {
+			const currentValue = JSON.parse(input.value);
+			window.openObjectEditor(key, currentValue, type === 'array', function(newValue) {
+				input.value = JSON.stringify(newValue);
+				updateObjectFieldDisplay(display, newValue, type);
+				if (onValidate) {
+					onValidate({ target: input });
+				}
+			});
+		};
+		
+		display.addEventListener('click', openEditor);
+		
+		const editBtn = document.createElement('button');
+		editBtn.type = 'button';
+		editBtn.className = 'object-field-edit-btn';
+		editBtn.textContent = 'Edit';
+		editBtn.addEventListener('click', openEditor);
+		
+		wrapper.appendChild(display);
+		wrapper.appendChild(editBtn);
+		div.appendChild(wrapper);
+		
+		const errorSpan = document.createElement('span');
+		errorSpan.className = 'field-error';
+		div.appendChild(errorSpan);
+		
+		return div;
 	} else {
 		input = document.createElement('input');
 		input.type = 'text';
-		
-		// Set appropriate value based on type
-		if (type === 'array' || type === 'object') {
-			input.value = JSON.stringify(value);
-		} else {
-			input.value = value;
-		}
+		input.value = value;
 	}
 	
 	input.dataset.key = key;

@@ -206,6 +206,32 @@
     gap: 8px;
 }
 
+.query-param-checkbox,
+.custom-param-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--vscode-button-background);
+    flex-shrink: 0;
+}
+
+.query-param-item.param-disabled,
+.custom-param-field.param-disabled {
+    opacity: 0.4;
+}
+
+.query-param-item.param-disabled input:not(.query-param-checkbox),
+.custom-param-field.param-disabled input:not(.custom-param-checkbox),
+.custom-param-field.param-disabled select,
+.custom-param-field.param-disabled .object-field-wrapper {
+    pointer-events: none;
+}
+
+.query-param-item.param-disabled .query-param-name,
+.custom-param-field.param-disabled label {
+    text-decoration: line-through;
+}
+
 .query-param-item input {
     flex: 1;
     padding: 6px 10px;
@@ -215,6 +241,10 @@
     border-radius: 4px;
     font-size: 13px;
     font-family: var(--vscode-font-family);
+}
+
+.query-param-item input[type="checkbox"] {
+    flex: none;
 }
 
 .query-param-item input:focus {

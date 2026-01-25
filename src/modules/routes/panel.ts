@@ -127,7 +127,7 @@ export class RoutesPanel {
 							this._outputChannel.appendLine(`Disabled params: ${disabledParams.join(', ')}`);
 						}
 						if (queryParams && queryParams.length > 0) {
-							this._outputChannel.appendLine(`Query params: ${queryParams.map((q: {name: string, value: string}) => `${q.name}=${q.value}`).join('&')}`);
+							this._outputChannel.appendLine(`Query params: ${queryParams.map((q: {name: string, value: string, enabled?: boolean}) => `${q.name}=${q.value}${q.enabled === false ? ' (disabled)' : ''}`).join('&')}`);
 						}
 						if (bearerToken) {
 							this._outputChannel.appendLine(`Using Bearer Token: ${bearerToken.substring(0, 20)}...`);
@@ -136,7 +136,7 @@ export class RoutesPanel {
 						
 						try {
 							// Pass bodyParams, pathParams, disabledParams, queryParams and bearerToken from the edited form
-							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string>; disabledParams?: string[]; queryParams?: Array<{name: string, value: string}>; bearerToken?: string } = {};
+							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string>; disabledParams?: string[]; queryParams?: Array<{name: string, value: string, enabled?: boolean}>; bearerToken?: string } = {};
 							if (bodyParams && Object.keys(bodyParams).length > 0) {
 								options.bodyParams = bodyParams;
 							}
@@ -309,26 +309,26 @@ export class RoutesPanel {
 		await this._context.workspaceState.update(PATH_PARAMS_STATE_KEY, allParams);
 	}
 
-	private async _saveCustomParams(routeKey: string, customParams: Array<{key: string, type: string, value: unknown}>): Promise<void> {
-		const allParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown}>>>(CUSTOM_PARAMS_KEY, {});
+	private async _saveCustomParams(routeKey: string, customParams: Array<{key: string, type: string, value: unknown, enabled?: boolean}>): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown, enabled?: boolean}>>>(CUSTOM_PARAMS_KEY, {});
 		allParams[routeKey] = customParams;
 		await this._context.workspaceState.update(CUSTOM_PARAMS_KEY, allParams);
 	}
 
 	private async _clearCustomParams(routeKey: string): Promise<void> {
-		const allParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown}>>>(CUSTOM_PARAMS_KEY, {});
+		const allParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown, enabled?: boolean}>>>(CUSTOM_PARAMS_KEY, {});
 		delete allParams[routeKey];
 		await this._context.workspaceState.update(CUSTOM_PARAMS_KEY, allParams);
 	}
 
-	private async _saveQueryParams(routeKey: string, queryParams: Array<{name: string, value: string}>): Promise<void> {
-		const allParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string}>>>(QUERY_PARAMS_KEY, {});
+	private async _saveQueryParams(routeKey: string, queryParams: Array<{name: string, value: string, enabled?: boolean}>): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string, enabled?: boolean}>>>(QUERY_PARAMS_KEY, {});
 		allParams[routeKey] = queryParams;
 		await this._context.workspaceState.update(QUERY_PARAMS_KEY, allParams);
 	}
 
 	private async _clearQueryParams(routeKey: string): Promise<void> {
-		const allParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string}>>>(QUERY_PARAMS_KEY, {});
+		const allParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string, enabled?: boolean}>>>(QUERY_PARAMS_KEY, {});
 		delete allParams[routeKey];
 		await this._context.workspaceState.update(QUERY_PARAMS_KEY, allParams);
 	}
@@ -406,8 +406,8 @@ export class RoutesPanel {
 		const persistedPathParams = this._context.workspaceState.get<Record<string, Record<string, string>>>(PATH_PARAMS_STATE_KEY, {});
 		const bearerTokens = this._context.workspaceState.get<Record<string, string>>(BEARER_TOKENS_KEY, {});
 		const selectedToken = this._context.workspaceState.get<string>(SELECTED_TOKEN_KEY, '');
-		const customParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown}>>>(CUSTOM_PARAMS_KEY, {});
-		const queryParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string}>>>(QUERY_PARAMS_KEY, {});
+		const customParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown, enabled?: boolean}>>>(CUSTOM_PARAMS_KEY, {});
+		const queryParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string, enabled?: boolean}>>>(QUERY_PARAMS_KEY, {});
 
 		// Load asset files
 		const assetsPath = path.join(this._extensionUri.fsPath, 'src', 'assets');
@@ -418,12 +418,14 @@ export class RoutesPanel {
 		const requestModalCss = fs.readFileSync(path.join(assetsPath, 'styles', 'request-modal.css'), 'utf8');
 		const responseModalCss = fs.readFileSync(path.join(assetsPath, 'styles', 'response-modal.css'), 'utf8');
 		const bearerTokenCss = fs.readFileSync(path.join(assetsPath, 'styles', 'bearer-token.css'), 'utf8');
+		const objectEditorCss = fs.readFileSync(path.join(assetsPath, 'styles', 'object-editor-modal.css'), 'utf8');
 		
 		// Load HTML templates
 		let routesTableHtml = fs.readFileSync(path.join(assetsPath, 'views', 'routes-table.html'), 'utf8');
 		const requestModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'request-modal.html'), 'utf8');
 		const responseModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'response-modal.html'), 'utf8');
 		const bearerModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'bearer-token-modal.html'), 'utf8');
+		const objectEditorHtml = fs.readFileSync(path.join(assetsPath, 'views', 'object-editor-modal.html'), 'utf8');
 		
 		// Load JS files
 		const mainJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'main.js'), 'utf8');
@@ -431,6 +433,7 @@ export class RoutesPanel {
 		const requestModalJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'request-modal.js'), 'utf8');
 		const responseModalJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'response-modal.js'), 'utf8');
 		const bearerTokenJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'bearer-token.js'), 'utf8');
+		const objectEditorJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'object-editor-modal.js'), 'utf8');
 
 		// Process routes table template
 		const hasRoutes = routes.length > 0;
@@ -455,6 +458,7 @@ ${routesTableCss}
 ${requestModalCss}
 ${responseModalCss}
 ${bearerTokenCss}
+${objectEditorCss}
 	</style>
 </head>
 <body>
@@ -462,6 +466,7 @@ ${routesTableHtml}
 ${requestModalHtml}
 ${responseModalHtml}
 ${bearerModalHtml}
+${objectEditorHtml}
 	<script>
 		const vscode = acquireVsCodeApi();
 ${mainJs}
@@ -469,6 +474,7 @@ ${routesTableJs}
 ${requestModalJs}
 ${responseModalJs}
 ${bearerTokenJs}
+${objectEditorJs}
 		// Initialize with config
 		initRoutesTable();
 		initRequestModal({
@@ -486,6 +492,7 @@ ${bearerTokenJs}
 			persistedTokens: ${JSON.stringify(bearerTokens)},
 			selectedToken: ${JSON.stringify(selectedToken)}
 		});
+		initObjectEditor();
 		
 		console.log('[Lapi] Scripts initialized');
 		

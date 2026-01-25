@@ -1,0 +1,37 @@
+<div class="object-editor-overlay" id="object-editor-overlay">
+    <div class="object-editor-modal">
+        <div class="object-editor-header">
+            <div class="object-editor-title-section">
+                <h2 class="object-editor-title" id="object-editor-title">Edit Object</h2>
+                <div class="object-editor-path" id="object-editor-path"></div>
+            </div>
+            <button class="object-editor-close" id="object-editor-close">&times;</button>
+        </div>
+        <div class="object-editor-body">
+            <div class="object-editor-toolbar">
+                <button class="object-editor-tool-btn" id="object-editor-add-field" title="Add field">
+                    <span class="tool-icon">+</span> Add Field
+                </button>
+                <button class="object-editor-tool-btn" id="object-editor-expand-all" title="Expand all">
+                    <span class="tool-icon">⊞</span> Expand All
+                </button>
+                <button class="object-editor-tool-btn" id="object-editor-collapse-all" title="Collapse all">
+                    <span class="tool-icon">⊟</span> Collapse All
+                </button>
+            </div>
+            <div class="object-editor-tree" id="object-editor-tree"></div>
+            <div class="object-editor-preview-section">
+                <div class="object-editor-preview-header">
+                    <span class="preview-label">JSON Preview</span>
+                    <button class="preview-toggle" id="object-editor-preview-toggle">▼</button>
+                </div>
+                <pre class="object-editor-preview" id="object-editor-preview"></pre>
+            </div>
+        </div>
+        <div class="object-editor-footer">
+            <span class="object-editor-error" id="object-editor-error"></span>
+            <button class="object-editor-btn object-editor-btn-secondary" id="object-editor-cancel">Cancel</button>
+            <button class="object-editor-btn object-editor-btn-primary" id="object-editor-save">Save</button>
+        </div>
+    </div>
+</div>
