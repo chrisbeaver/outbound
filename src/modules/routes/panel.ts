@@ -167,6 +167,25 @@ export class RoutesPanel {
 						command: 'serverStatusResult',
 						isAvailable: isAvailable
 					});
+				} else if (message.command === 'openFile') {
+					// Open controller file at method location
+					const { filePath, methodName } = message;
+					if (filePath && fs.existsSync(filePath)) {
+						const document = await vscode.workspace.openTextDocument(filePath);
+						const editor = await vscode.window.showTextDocument(document);
+						
+						// Find the method and scroll to it
+						if (methodName) {
+							const text = document.getText();
+							const methodRegex = new RegExp(`function\\s+${methodName}\\s*\\(`, 'g');
+							const match = methodRegex.exec(text);
+							if (match) {
+								const position = document.positionAt(match.index);
+								editor.selection = new vscode.Selection(position, position);
+								editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+							}
+						}
+					}
 				}
 			},
 			null,
@@ -300,6 +319,23 @@ ${requestModalJs}
 			vscode: vscode,
 			persistedParams: ${JSON.stringify(persistedParams)}
 		});
+		
+		// Handle controller link clicks
+		document.addEventListener('click', function(e) {
+			const target = e.target;
+			if (target && target.classList && target.classList.contains('controller-link')) {
+				e.preventDefault();
+				const filePath = target.getAttribute('data-file');
+				const methodName = target.getAttribute('data-method');
+				if (filePath) {
+					vscode.postMessage({
+						command: 'openFile',
+						filePath: filePath,
+						methodName: methodName
+					});
+				}
+			}
+		});
 	</script>
 </body>
 </html>`;
@@ -315,13 +351,21 @@ ${requestModalJs}
 		const method = this._escapeHtml(route.method);
 		const uri = this._escapeHtml(route.uri);
 
+		// Make controller clickable if we have the file path
+		let controllerHtml = this._escapeHtml(controller);
+		if (route.controllerPath && route.controllerMethod) {
+			const escapedPath = this._escapeHtml(route.controllerPath);
+			const escapedMethod = this._escapeHtml(route.controllerMethod);
+			controllerHtml = `<a href="#" class="controller-link" data-file="${escapedPath}" data-method="${escapedMethod}">${this._escapeHtml(controller)}</a>`;
+		}
+
 		return `
 			<tr>
 				<td><button class="submit-btn ${submitBtnClass}" onclick="openModal('${method}', '${uri}', '${fieldsJson}')">${submitMethod}</button></td>
 				<td><span class="method ${methodClass}">${this._escapeHtml(route.method)}</span></td>
 				<td class="uri">${this._escapeHtml(route.uri)}</td>
 				<td class="name">${this._escapeHtml(name)}</td>
-				<td class="controller">${this._escapeHtml(controller)}</td>
+				<td class="controller">${controllerHtml}</td>
 			</tr>
 		`;
 	}
