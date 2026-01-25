@@ -36,21 +36,34 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(displayRoutesCommand);
 
-	// Register Test Endpoint command (context menu in PHP files)
+	// Register Test Endpoint command (from Command Palette - just opens routes table)
 	const testEndpointCommand = vscode.commands.registerCommand('lapi.testEndpoint', async () => {
+		RoutesPanel.createOrShow(context.extensionUri, outputChannel, context);
+	});
+	context.subscriptions.push(testEndpointCommand);
+
+	// Register Test Endpoint From Context (from right-click - finds route and opens modal)
+	const testEndpointFromContextCommand = vscode.commands.registerCommand('lapi.testEndpointFromContext', async () => {
 		vscode.window.showInformationMessage('Lapi: Test Endpoint triggered');
-		console.log('[Lapi] Test Endpoint command invoked');
+		console.log('[Lapi] Test Endpoint command invoked from context menu');
 		if (outputChannel) {
-			outputChannel.appendLine('[Lapi] Test Endpoint command invoked');
+			outputChannel.appendLine('[Lapi] Test Endpoint command invoked from context menu');
 			outputChannel.show(true);
 		}
+		
 		const editor = vscode.window.activeTextEditor;
 		if (!editor) {
-			vscode.window.showWarningMessage('No active editor');
+			RoutesPanel.createOrShow(context.extensionUri, outputChannel, context);
 			return;
 		}
 
 		const document = editor.document;
+		
+		if (!document.fileName.endsWith('.php')) {
+			RoutesPanel.createOrShow(context.extensionUri, outputChannel, context);
+			return;
+		}
+		
 		const position = editor.selection.active;
 
 		let route: LaravelRoute | null = null;
@@ -98,7 +111,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Open the routes panel with this specific route
 		RoutesPanel.createOrShowWithRoute(context.extensionUri, outputChannel, context, route);
 	});
-	context.subscriptions.push(testEndpointCommand);
+	context.subscriptions.push(testEndpointFromContextCommand);
 }
 
 /**

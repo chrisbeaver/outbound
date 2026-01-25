@@ -24,12 +24,16 @@
       {
         "command": "lapi.testEndpoint",
         "title": "Lapi: Test Endpoint"
+      },
+      {
+        "command": "lapi.testEndpointFromContext",
+        "title": "Lapi: Test Endpoint"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "lapi.testEndpoint",
+          "command": "lapi.testEndpointFromContext",
           "when": "editorLangId == php",
           "group": "navigation"
         }

@@ -7,5 +7,15 @@
 		"out": true // set this to false to include "out" folder in search results
 	},
 	// Turn off tsc task auto detection since we have the necessary tasks as npm scripts
-	"typescript.tsc.autoDetect": "off"
+	"typescript.tsc.autoDetect": "off",
+	"github.copilot.advanced": {
+    "length": 300,  // Reduce suggestion length
+    "inlineSuggestCount": 1  // Fewer alternatives
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/node_modules/**": true,
+    "**/out/**": true,
+    "**/.vscode-test/**": true,
+  }
 }
