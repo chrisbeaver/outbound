@@ -12,6 +12,7 @@
 let currentRouteKey = null;
 let currentRouteFields = null;
 let currentPathSegments = null;
+let currentFieldsJson = null;
 let hasPersistedState = false;
 let hasPersistedPathState = false;
 let serverIsOnline = false;
@@ -287,6 +288,7 @@ function initRequestModal(config) {
 	// Open modal function (exposed globally)
 	window.openModal = function(method, uri, fieldsJson) {
 		currentRouteKey = method + ' ' + uri;
+		currentFieldsJson = fieldsJson;
 		
 		// Parse fields and build form
 		const fields = JSON.parse(fieldsJson);

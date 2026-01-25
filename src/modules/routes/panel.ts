@@ -152,9 +152,37 @@ export class RoutesPanel {
 							}
 							
 							this._outputChannel.show();
+							
+							// Send response to webview for display in response modal
+							this._panel.webview.postMessage({
+								command: 'showResponse',
+								method: method,
+								uri: uri,
+								response: {
+									statusCode: response.statusCode,
+									headers: response.headers,
+									rawBody: response.rawBody,
+									duration: response.duration,
+									error: response.error
+								}
+							});
 						} catch (error) {
 							this._outputChannel.appendLine(`Error: ${error}`);
 							this._outputChannel.show();
+							
+							// Send error to webview
+							this._panel.webview.postMessage({
+								command: 'showResponse',
+								method: method,
+								uri: uri,
+								response: {
+									statusCode: 0,
+									headers: {},
+									rawBody: '',
+									duration: 0,
+									error: String(error)
+								}
+							});
 						}
 					}
 				} else if (message.command === 'saveRequestParams') {
@@ -298,15 +326,18 @@ export class RoutesPanel {
 		const mainCss = fs.readFileSync(path.join(assetsPath, 'styles', 'main.css'), 'utf8');
 		const routesTableCss = fs.readFileSync(path.join(assetsPath, 'styles', 'routes-table.css'), 'utf8');
 		const requestModalCss = fs.readFileSync(path.join(assetsPath, 'styles', 'request-modal.css'), 'utf8');
+		const responseModalCss = fs.readFileSync(path.join(assetsPath, 'styles', 'response-modal.css'), 'utf8');
 		
 		// Load HTML templates
 		let routesTableHtml = fs.readFileSync(path.join(assetsPath, 'views', 'routes-table.html'), 'utf8');
 		const requestModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'request-modal.html'), 'utf8');
+		const responseModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'response-modal.html'), 'utf8');
 		
 		// Load JS files
 		const mainJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'main.js'), 'utf8');
 		const routesTableJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'routes-table.js'), 'utf8');
 		const requestModalJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'request-modal.js'), 'utf8');
+		const responseModalJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'response-modal.js'), 'utf8');
 
 		// Process routes table template
 		const hasRoutes = routes.length > 0;
@@ -329,22 +360,28 @@ export class RoutesPanel {
 ${mainCss}
 ${routesTableCss}
 ${requestModalCss}
+${responseModalCss}
 	</style>
 </head>
 <body>
 ${routesTableHtml}
 ${requestModalHtml}
+${responseModalHtml}
 	<script>
 		const vscode = acquireVsCodeApi();
 ${mainJs}
 ${routesTableJs}
 ${requestModalJs}
+${responseModalJs}
 		// Initialize with config
 		initRoutesTable();
 		initRequestModal({
 			vscode: vscode,
 			persistedParams: ${JSON.stringify(persistedParams)},
 			persistedPathParams: ${JSON.stringify(persistedPathParams)}
+		});
+		initResponseModal({
+			vscode: vscode
 		});
 		
 		// Handle controller link clicks

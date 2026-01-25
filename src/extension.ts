@@ -30,6 +30,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Parse routes to extract validation rules and request parameters
 	await parseRouteValidation(outputChannel);
 
+	// Watch for PHP file saves and refresh routes
+	const phpFileWatcher = vscode.workspace.onDidSaveTextDocument(async (document) => {
+		if (document.languageId === 'php' || document.fileName.endsWith('.php')) {
+			console.log('[Lapi] PHP file saved, refreshing routes...');
+			await refreshRoutes();
+		}
+	});
+	context.subscriptions.push(phpFileWatcher);
+
 	// Register Display Routes Table command
 	const displayRoutesCommand = vscode.commands.registerCommand('lapi.displayRoutesTable', () => {
 		RoutesPanel.createOrShow(context.extensionUri, outputChannel, context);
@@ -342,6 +351,27 @@ async function parseRouteValidation(outputChannel: vscode.OutputChannel): Promis
 
 	outputChannel.appendLine('');
 	outputChannel.appendLine(`Parsed ${parsedCount} routes with request parameters`);
+}
+
+/**
+ * Refresh routes by re-running artisan route:list and parsing validation
+ */
+async function refreshRoutes(): Promise<void> {
+	if (!outputChannel) {
+		return;
+	}
+
+	try {
+		// Re-identify routes from artisan
+		await identifyLaravelRoutes(outputChannel);
+
+		// Re-parse validation rules
+		await parseRouteValidation(outputChannel);
+
+		console.log('[Lapi] Routes refreshed successfully');
+	} catch (error) {
+		console.error('[Lapi] Error refreshing routes:', error);
+	}
 }
 
 // This method is called when your extension is deactivated
