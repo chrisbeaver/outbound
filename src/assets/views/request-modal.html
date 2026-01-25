@@ -25,6 +25,22 @@
             <div class="request-body-section" id="request-body-section">
                 <h3 class="section-title" id="body-section-title">Request Body</h3>
                 <div class="modal-form" id="modal-form"></div>
+                <div class="custom-params-section" id="custom-params-section">
+                    <div class="custom-params-list" id="custom-params-list"></div>
+                    <div class="add-param-row" id="add-param-row">
+                        <input type="text" class="add-param-name" id="add-param-name" placeholder="Parameter name" />
+                        <select class="add-param-type" id="add-param-type">
+                            <option value="string">Text</option>
+                            <option value="integer">Number</option>
+                            <option value="boolean">Boolean</option>
+                            <option value="date">Date</option>
+                            <option value="file">File</option>
+                            <option value="array">Array (JSON)</option>
+                            <option value="object">Object (JSON)</option>
+                        </select>
+                        <button class="add-param-btn" id="add-param-btn" title="Add parameter">+</button>
+                    </div>
+                </div>
             </div>
             <div class="json-error" id="json-error"></div>
         </div>

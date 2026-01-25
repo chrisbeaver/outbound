@@ -9,6 +9,7 @@ const WORKSPACE_STATE_KEY = 'lapi.requestParams';
 const PATH_PARAMS_STATE_KEY = 'lapi.pathParams';
 const BEARER_TOKENS_KEY = 'lapi.bearerTokens';
 const SELECTED_TOKEN_KEY = 'lapi.selectedToken';
+const CUSTOM_PARAMS_KEY = 'lapi.customParams';
 
 /**
  * Manages the Routes Table webview panel
@@ -249,6 +250,14 @@ export class RoutesPanel {
 					// Save selected token name to workspace state
 					const { tokenName } = message;
 					await this._context.workspaceState.update(SELECTED_TOKEN_KEY, tokenName);
+				} else if (message.command === 'saveCustomParams') {
+					// Save custom params for a route
+					const { routeKey, customParams } = message;
+					await this._saveCustomParams(routeKey, customParams);
+				} else if (message.command === 'clearCustomParams') {
+					// Clear custom params for a route
+					const { routeKey } = message;
+					await this._clearCustomParams(routeKey);
 				}
 			},
 			null,
@@ -283,6 +292,18 @@ export class RoutesPanel {
 		const allParams = this._context.workspaceState.get<Record<string, Record<string, string>>>(PATH_PARAMS_STATE_KEY, {});
 		delete allParams[routeKey];
 		await this._context.workspaceState.update(PATH_PARAMS_STATE_KEY, allParams);
+	}
+
+	private async _saveCustomParams(routeKey: string, customParams: Array<{key: string, type: string, value: unknown}>): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown}>>>(CUSTOM_PARAMS_KEY, {});
+		allParams[routeKey] = customParams;
+		await this._context.workspaceState.update(CUSTOM_PARAMS_KEY, allParams);
+	}
+
+	private async _clearCustomParams(routeKey: string): Promise<void> {
+		const allParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown}>>>(CUSTOM_PARAMS_KEY, {});
+		delete allParams[routeKey];
+		await this._context.workspaceState.update(CUSTOM_PARAMS_KEY, allParams);
 	}
 
 	public dispose() {
@@ -342,6 +363,7 @@ export class RoutesPanel {
 		const persistedPathParams = this._context.workspaceState.get<Record<string, Record<string, string>>>(PATH_PARAMS_STATE_KEY, {});
 		const bearerTokens = this._context.workspaceState.get<Record<string, string>>(BEARER_TOKENS_KEY, {});
 		const selectedToken = this._context.workspaceState.get<string>(SELECTED_TOKEN_KEY, '');
+		const customParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown}>>>(CUSTOM_PARAMS_KEY, {});
 
 		// Load asset files
 		const assetsPath = path.join(this._extensionUri.fsPath, 'src', 'assets');
@@ -408,7 +430,8 @@ ${bearerTokenJs}
 		initRequestModal({
 			vscode: vscode,
 			persistedParams: ${JSON.stringify(persistedParams)},
-			persistedPathParams: ${JSON.stringify(persistedPathParams)}
+			persistedPathParams: ${JSON.stringify(persistedPathParams)},
+			persistedCustomParams: ${JSON.stringify(customParams)}
 		});
 		initResponseModal({
 			vscode: vscode

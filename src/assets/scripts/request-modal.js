@@ -6,6 +6,7 @@
  * - vscode: VS Code API instance
  * - persistedParams: Object of persisted params from workspace state
  * - persistedPathParams: Object of persisted path params from workspace state
+ * - persistedCustomParams: Object of persisted custom params from workspace state
  */
 
 // Modal state
@@ -15,6 +16,7 @@ let currentPathSegments = null;
 let currentFieldsJson = null;
 let hasPersistedState = false;
 let hasPersistedPathState = false;
+let hasPersistedCustomState = false;
 let serverIsOnline = false;
 let serverPollInterval = null;
 
@@ -25,6 +27,7 @@ const pathSegmentDefaults = {};
 // In-memory state for current session edits (not yet saved)
 const sessionState = {};
 const pathSessionState = {};
+const customParamsState = {};
 
 /**
  * Initialize the request modal
@@ -34,7 +37,7 @@ const pathSessionState = {};
  * @param {object} config.persistedPathParams - Persisted path params from workspace state
  */
 function initRequestModal(config) {
-	const { vscode, persistedParams, persistedPathParams } = config;
+	const { vscode, persistedParams, persistedPathParams, persistedCustomParams } = config;
 	
 	// Get DOM elements
 	const modalOverlay = document.getElementById('modal-overlay');
@@ -53,6 +56,10 @@ function initRequestModal(config) {
 	const uriSegmentsSection = document.getElementById('uri-segments-section');
 	const uriSegmentsForm = document.getElementById('uri-segments-form');
 	const bodySectionTitle = document.getElementById('body-section-title');
+	const customParamsList = document.getElementById('custom-params-list');
+	const addParamName = document.getElementById('add-param-name');
+	const addParamType = document.getElementById('add-param-type');
+	const addParamBtn = document.getElementById('add-param-btn');
 	
 	// Listen for server status response from extension
 	window.addEventListener('message', function(event) {
@@ -201,6 +208,152 @@ function initRequestModal(config) {
 		delete persistedPathParams[routeKey];
 	}
 	
+	function persistCustomParams(routeKey, customParams) {
+		vscode.postMessage({
+			command: 'saveCustomParams',
+			routeKey: routeKey,
+			customParams: customParams
+		});
+		persistedCustomParams[routeKey] = customParams;
+	}
+	
+	function clearPersistedCustomParams(routeKey) {
+		vscode.postMessage({
+			command: 'clearCustomParams',
+			routeKey: routeKey
+		});
+		delete persistedCustomParams[routeKey];
+	}
+	
+	function getDefaultValueForType(type) {
+		switch (type) {
+			case 'integer': return 0;
+			case 'boolean': return true;
+			case 'date': return new Date().toISOString().split('T')[0];
+			case 'file': return '';
+			case 'array': return [];
+			case 'object': return {};
+			default: return '';
+		}
+	}
+	
+	function getCurrentCustomParams() {
+		const params = [];
+		const customFields = customParamsList.querySelectorAll('.custom-param-field');
+		for (const field of customFields) {
+			const input = field.querySelector('input[data-type], select[data-type]');
+			if (input) {
+				const key = input.dataset.key;
+				const type = input.dataset.type;
+				let value = input.value;
+				
+				// Parse value based on type
+				if (type === 'integer') {
+					value = parseInt(value, 10) || 0;
+				} else if (type === 'boolean') {
+					value = value === 'true';
+				} else if (type === 'array' || type === 'object') {
+					try {
+						value = JSON.parse(value);
+					} catch {
+						value = type === 'array' ? [] : {};
+					}
+				}
+				
+				params.push({ key, type, value });
+			}
+		}
+		return params;
+	}
+	
+	function addCustomParam(name, type, value) {
+		if (!name.trim()) return;
+		
+		const field = document.createElement('div');
+		field.className = 'custom-param-field';
+		
+		const header = document.createElement('div');
+		header.className = 'custom-param-header';
+		
+		const label = document.createElement('label');
+		label.innerHTML = name + ' <span class="field-type">(' + type + ')</span>';
+		header.appendChild(label);
+		
+		const removeBtn = document.createElement('button');
+		removeBtn.className = 'custom-param-remove';
+		removeBtn.textContent = '×';
+		removeBtn.title = 'Remove parameter';
+		removeBtn.addEventListener('click', function() {
+			field.remove();
+			updateCopyButtonState();
+			saveCustomParamsState();
+		});
+		header.appendChild(removeBtn);
+		
+		field.appendChild(header);
+		
+		let input;
+		if (type === 'boolean') {
+			input = document.createElement('select');
+			input.innerHTML = '<option value="true">true</option><option value="false">false</option>';
+			input.value = String(value);
+		} else if (type === 'date') {
+			input = document.createElement('input');
+			input.type = 'date';
+			input.value = value || new Date().toISOString().split('T')[0];
+		} else if (type === 'file') {
+			input = document.createElement('input');
+			input.type = 'file';
+		} else {
+			input = document.createElement('input');
+			input.type = type === 'integer' ? 'number' : 'text';
+			if (type === 'array' || type === 'object') {
+				input.value = typeof value === 'string' ? value : JSON.stringify(value);
+			} else {
+				input.value = value;
+			}
+		}
+		
+		input.dataset.key = name;
+		input.dataset.type = type;
+		input.dataset.custom = 'true';
+		field.appendChild(input);
+		
+		customParamsList.appendChild(field);
+		updateCopyButtonState();
+		saveCustomParamsState();
+	}
+	
+	function renderCustomParams(params) {
+		customParamsList.innerHTML = '';
+		if (params && params.length > 0) {
+			for (const param of params) {
+				addCustomParam(param.key, param.type, param.value);
+			}
+		}
+	}
+	
+	function saveCustomParamsState() {
+		if (currentRouteKey) {
+			const customParams = getCurrentCustomParams();
+			customParamsState[currentRouteKey] = customParams;
+			
+			if (customParams.length > 0) {
+				persistCustomParams(currentRouteKey, customParams);
+				hasPersistedCustomState = true;
+			} else if (hasPersistedCustomState) {
+				clearPersistedCustomParams(currentRouteKey);
+				hasPersistedCustomState = false;
+			}
+		}
+	}
+	
+	function updateCopyButtonState() {
+		const hasFields = modalForm.querySelectorAll('.form-field').length > 0;
+		const hasCustomParams = customParamsList.querySelectorAll('.custom-param-field').length > 0;
+		modalCopy.disabled = !hasFields && !hasCustomParams;
+	}
+	
 	function submitRequest(method, uri, bodyParams, pathParams, disabledParams) {
 		// Get bearer token from modal dropdown
 		const modalAuthSelect = document.getElementById('modal-auth-select');
@@ -291,6 +444,12 @@ function initRequestModal(config) {
 			}
 		}
 		
+		// Clear custom params
+		clearPersistedCustomParams(currentRouteKey);
+		delete customParamsState[currentRouteKey];
+		hasPersistedCustomState = false;
+		customParamsList.innerHTML = '';
+		
 		// Update title to remove saved indicator
 		const paramCount = currentRouteFields ? currentRouteFields.length : 0;
 		modalTitle.innerHTML = paramCount > 0 
@@ -299,6 +458,9 @@ function initRequestModal(config) {
 		
 		// Hide reset button
 		modalReset.style.display = 'none';
+		
+		// Update copy button state
+		updateCopyButtonState();
 		
 		copySuccess.classList.remove('show');
 		jsonError.classList.remove('show');
@@ -426,6 +588,25 @@ function initRequestModal(config) {
 		copySuccess.classList.remove('show');
 		jsonError.classList.remove('show');
 		
+		// Load custom params for this route
+		const persistedCustom = persistedCustomParams[currentRouteKey];
+		hasPersistedCustomState = !!persistedCustom;
+		const sessionCustom = customParamsState[currentRouteKey];
+		
+		// Priority: persisted > session
+		const customToRender = persistedCustom || sessionCustom || [];
+		renderCustomParams(customToRender);
+		
+		// Clear add param inputs
+		addParamName.value = '';
+		addParamType.value = 'string';
+		
+		// Update copy button state
+		updateCopyButtonState();
+		
+		// Update reset button to show if any state is persisted
+		modalReset.style.display = (hasPersistedState || hasPersistedPathState || hasPersistedCustomState) ? 'inline-block' : 'none';
+		
 		// Sync auth token dropdown
 		if (typeof window.syncModalAuthDropdown === 'function') {
 			window.syncModalAuthDropdown();
@@ -439,6 +620,25 @@ function initRequestModal(config) {
 	modalClose.addEventListener('click', closeModal);
 	modalCloseBtn.addEventListener('click', closeModal);
 	modalReset.addEventListener('click', resetToDefaults);
+	
+	// Add custom parameter
+	addParamBtn.addEventListener('click', function() {
+		const name = addParamName.value.trim();
+		const type = addParamType.value;
+		if (name) {
+			addCustomParam(name, type, getDefaultValueForType(type));
+			addParamName.value = '';
+			addParamType.value = 'string';
+			addParamName.focus();
+		}
+	});
+	
+	// Allow Enter key to add param
+	addParamName.addEventListener('keydown', function(e) {
+		if (e.key === 'Enter') {
+			addParamBtn.click();
+		}
+	});
 	
 	// Send request from modal
 	modalSend.addEventListener('click', function() {
@@ -455,7 +655,15 @@ function initRequestModal(config) {
 		const pathParams = currentPathSegments && currentPathSegments.length > 0 
 			? getFormJson(uriSegmentsForm) 
 			: {};
+		
+		// Add custom params to bodyParams
+		const customParams = getCurrentCustomParams();
+		for (const param of customParams) {
+			bodyParams[param.key] = param.value;
+		}
+		
 		saveFormState();
+		saveCustomParamsState();
 		
 		// Extract method and uri from current route key
 		const [method, ...uriParts] = currentRouteKey.split(' ');
@@ -475,7 +683,15 @@ function initRequestModal(config) {
 			return;
 		}
 		
-		const json = JSON.stringify(getFormJson(modalForm), null, 2);
+		const bodyParams = getFormJson(modalForm);
+		
+		// Add custom params
+		const customParams = getCurrentCustomParams();
+		for (const param of customParams) {
+			bodyParams[param.key] = param.value;
+		}
+		
+		const json = JSON.stringify(bodyParams, null, 2);
 		navigator.clipboard.writeText(json).then(function() {
 			copySuccess.classList.add('show');
 			jsonError.classList.remove('show');

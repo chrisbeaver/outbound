@@ -218,6 +218,154 @@
     margin-left: 8px;
 }
 
+/* Custom parameters section */
+.custom-params-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--vscode-widget-border);
+}
+
+.custom-params-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.custom-params-list:empty {
+    margin-bottom: 0;
+}
+
+.custom-param-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+}
+
+.custom-param-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.custom-param-header label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+}
+
+.custom-param-header .field-type {
+    font-weight: normal;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+.custom-param-remove {
+    background: none;
+    border: none;
+    color: var(--vscode-errorForeground);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 14px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.custom-param-remove:hover {
+    opacity: 1;
+    background-color: var(--vscode-inputValidation-errorBackground);
+}
+
+.custom-param-remove:active {
+    transform: scale(0.92);
+}
+
+.custom-param-field input,
+.custom-param-field select {
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-input-border);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--vscode-editor-font-family);
+}
+
+.custom-param-field input:focus,
+.custom-param-field select:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
+.add-param-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.add-param-name {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-input-border);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--vscode-font-family);
+}
+
+.add-param-name:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
+.add-param-type {
+    padding: 6px 10px;
+    border: 1px solid var(--vscode-input-border);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: var(--vscode-font-family);
+    cursor: pointer;
+    min-width: 110px;
+}
+
+.add-param-type:focus {
+    outline: none;
+    border-color: var(--vscode-focusBorder);
+}
+
+.add-param-btn {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-param-btn:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+.add-param-btn:active {
+    transform: scale(0.96);
+    opacity: 0.9;
+}
+
 /* Server status indicator */
 .server-status {
     display: flex;
