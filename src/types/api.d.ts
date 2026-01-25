@@ -42,4 +42,6 @@ export interface RequestOptions {
 	timeout?: number;
 	/** Bearer token for authentication */
 	bearerToken?: string;
+	/** List of parameter names to exclude from the request */
+	disabledParams?: string[];
 }

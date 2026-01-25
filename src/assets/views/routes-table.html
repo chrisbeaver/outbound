@@ -1,6 +1,15 @@
 <h1>🛣️ Laravel Routes</h1>
 <div class="stats">Total routes: {{routeCount}}</div>
 
+<div class="bearer-header-section">
+    <span class="bearer-header-label">Auth Token:</span>
+    <select class="bearer-header-select" id="bearer-header-select">
+        <option value="">No Auth</option>
+    </select>
+    <span class="bearer-status inactive" id="bearer-status">None</span>
+    <button class="bearer-header-settings" id="bearer-header-settings" title="Manage tokens">⚙️</button>
+</div>
+
 <div class="search-container">
     <input type="text" id="search" placeholder="Filter routes..." />
 </div>

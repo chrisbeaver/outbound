@@ -185,6 +185,11 @@ export function buildRequestConfig(
 			
 			const paramName = param.name;
 			
+			// Skip disabled params - they should not be sent at all
+			if (options.disabledParams?.includes(paramName)) {
+				continue;
+			}
+			
 			if (method === 'GET' || method === 'HEAD') {
 				if (!(paramName in queryParams)) {
 					queryParams[paramName] = '';

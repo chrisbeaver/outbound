@@ -140,6 +140,35 @@ h1 {
     display: block;
 }
 
+/* Form field header with checkbox */
+.form-field-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.field-enable-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--vscode-button-background);
+    flex-shrink: 0;
+}
+
+/* Disabled field state */
+.form-field.field-disabled {
+    opacity: 0.4;
+}
+
+.form-field.field-disabled input:not(.field-enable-checkbox),
+.form-field.field-disabled select {
+    pointer-events: none;
+}
+
+.form-field.field-disabled label {
+    text-decoration: line-through;
+}
+
 .no-content {
     text-align: center;
     padding: 40px;

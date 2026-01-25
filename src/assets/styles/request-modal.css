@@ -63,6 +63,35 @@
     background-color: var(--vscode-toolbar-hoverBackground);
 }
 
+.modal-auth-token {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.modal-auth-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+.modal-auth-select {
+    padding: 4px 8px;
+    border: 1px solid var(--vscode-input-border);
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: var(--vscode-font-family);
+    cursor: pointer;
+    min-width: 120px;
+}
+
+.modal-auth-select:focus {
+    outline: none;
+    border-color: var(--vscode-focusBorder);
+}
+
 .modal-body {
     padding: 20px;
     overflow-y: auto;

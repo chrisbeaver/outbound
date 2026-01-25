@@ -143,9 +143,17 @@ function initRequestModal(config) {
 	
 	function hasChanges() {
 		if (!currentRouteKey || !routeDefaults[currentRouteKey]) return false;
-		const current = getFormJson(modalForm);
+		// Include all values (even disabled) for comparison
+		const current = getFormJson(modalForm, true);
 		const defaults = routeDefaults[currentRouteKey];
-		return JSON.stringify(current) !== JSON.stringify(defaults);
+		if (JSON.stringify(current) !== JSON.stringify(defaults)) return true;
+		
+		// Also check if any fields were disabled
+		const enabledState = getFormEnabledState(modalForm);
+		for (const key in enabledState) {
+			if (!enabledState[key]) return true; // A field is disabled, so there are changes
+		}
+		return false;
 	}
 	
 	function hasPathChanges() {
@@ -158,13 +166,14 @@ function initRequestModal(config) {
 		return false;
 	}
 	
-	function persistParams(routeKey, params) {
+	function persistParams(routeKey, params, enabledState) {
 		vscode.postMessage({
 			command: 'saveRequestParams',
 			routeKey: routeKey,
-			params: params
+			params: params,
+			enabledState: enabledState
 		});
-		persistedParams[routeKey] = params;
+		persistedParams[routeKey] = { values: params, enabled: enabledState };
 	}
 	
 	function clearPersistedParams(routeKey) {
@@ -192,13 +201,22 @@ function initRequestModal(config) {
 		delete persistedPathParams[routeKey];
 	}
 	
-	function submitRequest(method, uri, bodyParams, pathParams) {
+	function submitRequest(method, uri, bodyParams, pathParams, disabledParams) {
+		// Get bearer token from modal dropdown
+		const modalAuthSelect = document.getElementById('modal-auth-select');
+		const selectedTokenName = modalAuthSelect ? modalAuthSelect.value : '';
+		const bearerToken = selectedTokenName && typeof window.getBearerTokenByName === 'function'
+			? window.getBearerTokenByName(selectedTokenName)
+			: null;
+		
 		vscode.postMessage({
 			command: 'executeRequest',
 			method: method,
 			uri: uri,
 			bodyParams: bodyParams,
-			pathParams: pathParams
+			pathParams: pathParams,
+			disabledParams: disabledParams,
+			bearerToken: bearerToken
 		});
 	}
 	
@@ -206,12 +224,13 @@ function initRequestModal(config) {
 		if (currentRouteKey) {
 			// Save body params
 			if (currentRouteFields && currentRouteFields.length > 0) {
-				const currentValues = getFormJson(modalForm);
-				sessionState[currentRouteKey] = currentValues;
+				const currentValues = getFormJson(modalForm, true); // Include all values
+				const enabledState = getFormEnabledState(modalForm);
+				sessionState[currentRouteKey] = { values: currentValues, enabled: enabledState };
 				
 				// If values differ from defaults, persist to workspace state
 				if (hasChanges()) {
-					persistParams(currentRouteKey, currentValues);
+					persistParams(currentRouteKey, currentValues, enabledState);
 					hasPersistedState = true;
 				}
 			}
@@ -245,10 +264,10 @@ function initRequestModal(config) {
 			delete sessionState[currentRouteKey];
 			hasPersistedState = false;
 			
-			// Rebuild body form with defaults
+			// Rebuild body form with defaults (all enabled)
 			modalForm.innerHTML = '';
 			for (const field of currentRouteFields) {
-				const fieldEl = createFormField(field.key, field.value, field.type, validateFormField);
+				const fieldEl = createFormField(field.key, field.value, field.type, validateFormField, true, true);
 				modalForm.appendChild(fieldEl);
 			}
 		}
@@ -259,10 +278,10 @@ function initRequestModal(config) {
 			delete pathSessionState[currentRouteKey];
 			hasPersistedPathState = false;
 			
-			// Rebuild path segments form with empty defaults
+			// Rebuild path segments form with empty defaults (no checkbox for path params)
 			uriSegmentsForm.innerHTML = '';
 			for (const segment of currentPathSegments) {
-				const fieldEl = createFormField(segment.key, '', 'string', null);
+				const fieldEl = createFormField(segment.key, '', 'string', null, false);
 				// Add placeholder for optional segments
 				const input = fieldEl.querySelector('input');
 				if (input && segment.isOptional) {
@@ -306,10 +325,37 @@ function initRequestModal(config) {
 		const persisted = persistedParams[currentRouteKey];
 		hasPersistedState = !!persisted;
 		
+		// Get persisted values and enabled state
+		let persistedValues = null;
+		let persistedEnabled = null;
+		if (persisted) {
+			// Handle both old format (just values) and new format (values + enabled)
+			if (persisted.values) {
+				persistedValues = persisted.values;
+				persistedEnabled = persisted.enabled || {};
+			} else {
+				persistedValues = persisted;
+				persistedEnabled = {};
+			}
+		}
+		
+		// Get session state values and enabled state
+		let sessionValues = null;
+		let sessionEnabled = null;
+		if (sessionState[currentRouteKey]) {
+			if (sessionState[currentRouteKey].values) {
+				sessionValues = sessionState[currentRouteKey].values;
+				sessionEnabled = sessionState[currentRouteKey].enabled || {};
+			} else {
+				sessionValues = sessionState[currentRouteKey];
+				sessionEnabled = {};
+			}
+		}
+		
 		const persistedPath = persistedPathParams[currentRouteKey];
 		hasPersistedPathState = !!persistedPath;
 		
-		// Handle URI segments section
+		// Handle URI segments section (no checkboxes for path params)
 		if (currentPathSegments.length > 0) {
 			uriSegmentsSection.style.display = 'block';
 			
@@ -322,7 +368,7 @@ function initRequestModal(config) {
 					value = pathSessionState[currentRouteKey][segment.key];
 				}
 				
-				const fieldEl = createFormField(segment.key, value, 'string', null);
+				const fieldEl = createFormField(segment.key, value, 'string', null, false);
 				// Add placeholder for optional segments
 				const input = fieldEl.querySelector('input');
 				if (input && segment.isOptional) {
@@ -356,12 +402,20 @@ function initRequestModal(config) {
 			for (const field of fields) {
 				// Priority: persisted > session > default
 				let value = field.value;
-				if (persisted && persisted.hasOwnProperty(field.key)) {
-					value = persisted[field.key];
-				} else if (sessionState[currentRouteKey] && sessionState[currentRouteKey].hasOwnProperty(field.key)) {
-					value = sessionState[currentRouteKey][field.key];
+				let enabled = true;
+				
+				if (persistedValues && persistedValues.hasOwnProperty(field.key)) {
+					value = persistedValues[field.key];
+					if (persistedEnabled && persistedEnabled.hasOwnProperty(field.key)) {
+						enabled = persistedEnabled[field.key];
+					}
+				} else if (sessionValues && sessionValues.hasOwnProperty(field.key)) {
+					value = sessionValues[field.key];
+					if (sessionEnabled && sessionEnabled.hasOwnProperty(field.key)) {
+						enabled = sessionEnabled[field.key];
+					}
 				}
-				const fieldEl = createFormField(field.key, value, field.type, validateFormField);
+				const fieldEl = createFormField(field.key, value, field.type, validateFormField, true, enabled);
 				modalForm.appendChild(fieldEl);
 			}
 		}
@@ -369,6 +423,11 @@ function initRequestModal(config) {
 		modalOverlay.classList.add('active');
 		copySuccess.classList.remove('show');
 		jsonError.classList.remove('show');
+		
+		// Sync auth token dropdown
+		if (typeof window.syncModalAuthDropdown === 'function') {
+			window.syncModalAuthDropdown();
+		}
 		
 		// Check server status when modal opens
 		checkServerStatus();
@@ -390,6 +449,7 @@ function initRequestModal(config) {
 		}
 		
 		const bodyParams = getFormJson(modalForm);
+		const disabledParams = getDisabledParams(modalForm);
 		const pathParams = currentPathSegments && currentPathSegments.length > 0 
 			? getFormJson(uriSegmentsForm) 
 			: {};
@@ -399,7 +459,7 @@ function initRequestModal(config) {
 		const [method, ...uriParts] = currentRouteKey.split(' ');
 		const uri = uriParts.join(' ');
 		
-		submitRequest(method, uri, bodyParams, pathParams);
+		submitRequest(method, uri, bodyParams, pathParams, disabledParams);
 		closeModal();
 	});
 	

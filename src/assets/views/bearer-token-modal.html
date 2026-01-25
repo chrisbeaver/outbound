@@ -1,0 +1,48 @@
+<div class="bearer-modal-overlay" id="bearer-modal-overlay">
+    <div class="bearer-modal">
+        <div class="bearer-modal-header">
+            <h2 class="bearer-modal-title">Manage Auth Tokens</h2>
+            <button class="bearer-modal-close" id="bearer-modal-close">&times;</button>
+        </div>
+        <div class="bearer-modal-body">
+            <div class="bearer-section">
+                <h3 class="bearer-section-title">Saved Tokens</h3>
+                <div class="bearer-token-list" id="bearer-token-list">
+                    <div class="bearer-no-tokens">No tokens saved yet</div>
+                </div>
+            </div>
+            <div class="bearer-section">
+                <h3 class="bearer-section-title">Add New Token</h3>
+                <div class="bearer-add-form">
+                    <div class="bearer-form-group">
+                        <label for="bearer-token-name">Name</label>
+                        <input type="text" id="bearer-token-name" placeholder="e.g., Development, Production" />
+                    </div>
+                    <div class="bearer-form-group">
+                        <label for="bearer-token-value">Token</label>
+                        <input type="text" id="bearer-token-value" placeholder="Enter bearer token..." />
+                    </div>
+                    <button class="bearer-add-btn" id="bearer-add-btn">
+                        <span class="bearer-add-icon">+</span> Add Token
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="bearer-modal-footer">
+            <button class="bearer-modal-btn bearer-modal-btn-secondary" id="bearer-modal-done">Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete confirmation dialog -->
+<div class="bearer-confirm-overlay" id="bearer-confirm-overlay">
+    <div class="bearer-confirm-dialog">
+        <div class="bearer-confirm-icon">🗑️</div>
+        <h3 class="bearer-confirm-title">Delete Token?</h3>
+        <p class="bearer-confirm-message">Are you sure you want to delete "<span id="bearer-confirm-name"></span>"?</p>
+        <div class="bearer-confirm-buttons">
+            <button class="bearer-modal-btn bearer-modal-btn-secondary" id="bearer-confirm-cancel">Cancel</button>
+            <button class="bearer-modal-btn bearer-modal-btn-danger" id="bearer-confirm-delete">Delete</button>
+        </div>
+    </div>
+</div>

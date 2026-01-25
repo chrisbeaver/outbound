@@ -7,6 +7,8 @@ import { executeRequest, checkServerStatus } from '../api/request';
 
 const WORKSPACE_STATE_KEY = 'lapi.requestParams';
 const PATH_PARAMS_STATE_KEY = 'lapi.pathParams';
+const BEARER_TOKENS_KEY = 'lapi.bearerTokens';
+const SELECTED_TOKEN_KEY = 'lapi.selectedToken';
 
 /**
  * Manages the Routes Table webview panel
@@ -104,7 +106,7 @@ export class RoutesPanel {
 		this._panel.webview.onDidReceiveMessage(
 			async (message) => {
 				if (message.command === 'executeRequest') {
-					const { method, uri, bodyParams, pathParams } = message;
+					const { method, uri, bodyParams, pathParams, disabledParams, bearerToken } = message;
 					const route = getRouteStorage().get(method, uri);
 					
 					if (route) {
@@ -119,16 +121,28 @@ export class RoutesPanel {
 								this._outputChannel.appendLine(`  - ${param.name} (${param.type}) isPathParam=${param.isPathParam}`);
 							}
 						}
+						if (disabledParams && disabledParams.length > 0) {
+							this._outputChannel.appendLine(`Disabled params: ${disabledParams.join(', ')}`);
+						}
+						if (bearerToken) {
+							this._outputChannel.appendLine(`Using Bearer Token: ${bearerToken.substring(0, 20)}...`);
+						}
 						this._outputChannel.appendLine('');
 						
 						try {
-							// Pass bodyParams and pathParams from the edited form
-							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string> } = {};
+							// Pass bodyParams, pathParams, disabledParams and bearerToken from the edited form
+							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string>; disabledParams?: string[]; bearerToken?: string } = {};
 							if (bodyParams && Object.keys(bodyParams).length > 0) {
 								options.bodyParams = bodyParams;
 							}
 							if (pathParams && Object.keys(pathParams).length > 0) {
 								options.pathParams = pathParams;
+							}
+							if (disabledParams && disabledParams.length > 0) {
+								options.disabledParams = disabledParams;
+							}
+							if (bearerToken) {
+								options.bearerToken = bearerToken;
 							}
 							const response = await executeRequest(route, options);
 							
@@ -186,9 +200,9 @@ export class RoutesPanel {
 						}
 					}
 				} else if (message.command === 'saveRequestParams') {
-					// Save user-edited params to workspace state
-					const { routeKey, params } = message;
-					await this._saveRequestParams(routeKey, params);
+					// Save user-edited params to workspace state (includes values and enabled state)
+					const { routeKey, params, enabledState } = message;
+					await this._saveRequestParams(routeKey, { values: params, enabled: enabledState });
 				} else if (message.command === 'clearRequestParams') {
 					// Clear persisted params for a route (reset to defaults)
 					const { routeKey } = message;
@@ -227,6 +241,14 @@ export class RoutesPanel {
 							}
 						}
 					}
+				} else if (message.command === 'saveBearerTokens') {
+					// Save bearer tokens to workspace state
+					const { tokens } = message;
+					await this._context.workspaceState.update(BEARER_TOKENS_KEY, tokens);
+				} else if (message.command === 'saveSelectedToken') {
+					// Save selected token name to workspace state
+					const { tokenName } = message;
+					await this._context.workspaceState.update(SELECTED_TOKEN_KEY, tokenName);
 				}
 			},
 			null,
@@ -318,6 +340,8 @@ export class RoutesPanel {
 		// Get all persisted params to pass to webview
 		const persistedParams = this._context.workspaceState.get<Record<string, Record<string, unknown>>>(WORKSPACE_STATE_KEY, {});
 		const persistedPathParams = this._context.workspaceState.get<Record<string, Record<string, string>>>(PATH_PARAMS_STATE_KEY, {});
+		const bearerTokens = this._context.workspaceState.get<Record<string, string>>(BEARER_TOKENS_KEY, {});
+		const selectedToken = this._context.workspaceState.get<string>(SELECTED_TOKEN_KEY, '');
 
 		// Load asset files
 		const assetsPath = path.join(this._extensionUri.fsPath, 'src', 'assets');
@@ -327,17 +351,20 @@ export class RoutesPanel {
 		const routesTableCss = fs.readFileSync(path.join(assetsPath, 'styles', 'routes-table.css'), 'utf8');
 		const requestModalCss = fs.readFileSync(path.join(assetsPath, 'styles', 'request-modal.css'), 'utf8');
 		const responseModalCss = fs.readFileSync(path.join(assetsPath, 'styles', 'response-modal.css'), 'utf8');
+		const bearerTokenCss = fs.readFileSync(path.join(assetsPath, 'styles', 'bearer-token.css'), 'utf8');
 		
 		// Load HTML templates
 		let routesTableHtml = fs.readFileSync(path.join(assetsPath, 'views', 'routes-table.html'), 'utf8');
 		const requestModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'request-modal.html'), 'utf8');
 		const responseModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'response-modal.html'), 'utf8');
+		const bearerModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'bearer-token-modal.html'), 'utf8');
 		
 		// Load JS files
 		const mainJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'main.js'), 'utf8');
 		const routesTableJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'routes-table.js'), 'utf8');
 		const requestModalJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'request-modal.js'), 'utf8');
 		const responseModalJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'response-modal.js'), 'utf8');
+		const bearerTokenJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'bearer-token.js'), 'utf8');
 
 		// Process routes table template
 		const hasRoutes = routes.length > 0;
@@ -346,7 +373,7 @@ export class RoutesPanel {
 		// Simple template substitution
 		routesTableHtml = routesTableHtml
 			.replace('{{routeCount}}', String(routes.length))
-			.replace(/{{#if hasRoutes}}([\s\S]*?){{else}}([\s\S]*?){{\/#if}}/g, 
+			.replace(/\{\{#if hasRoutes\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{\/if\}\}/g, 
 				hasRoutes ? '$1' : '$2')
 			.replace('{{routeRows}}', routeRows);
 
@@ -361,18 +388,21 @@ ${mainCss}
 ${routesTableCss}
 ${requestModalCss}
 ${responseModalCss}
+${bearerTokenCss}
 	</style>
 </head>
 <body>
 ${routesTableHtml}
 ${requestModalHtml}
 ${responseModalHtml}
+${bearerModalHtml}
 	<script>
 		const vscode = acquireVsCodeApi();
 ${mainJs}
 ${routesTableJs}
 ${requestModalJs}
 ${responseModalJs}
+${bearerTokenJs}
 		// Initialize with config
 		initRoutesTable();
 		initRequestModal({
@@ -382,6 +412,11 @@ ${responseModalJs}
 		});
 		initResponseModal({
 			vscode: vscode
+		});
+		initBearerToken({
+			vscode: vscode,
+			persistedTokens: ${JSON.stringify(bearerTokens)},
+			selectedToken: ${JSON.stringify(selectedToken)}
 		});
 		
 		// Handle controller link clicks

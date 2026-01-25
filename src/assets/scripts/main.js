@@ -31,15 +31,48 @@ function initTableSearch(searchInputId, tableId) {
  * @param {*} value - Field value
  * @param {string} type - Field type (string, integer, boolean, array, object, etc.)
  * @param {function} onValidate - Validation callback
+ * @param {boolean} showEnableCheckbox - Whether to show enable/disable checkbox
+ * @param {boolean} enabled - Initial enabled state (default true)
  * @returns {HTMLElement} Form field element
  */
-function createFormField(key, value, type, onValidate) {
+function createFormField(key, value, type, onValidate, showEnableCheckbox, enabled) {
 	const div = document.createElement('div');
 	div.className = 'form-field';
 	
+	// Default enabled to true if not specified
+	if (typeof enabled === 'undefined') {
+		enabled = true;
+	}
+	
+	const labelContainer = document.createElement('div');
+	labelContainer.className = 'form-field-header';
+	
+	// Enable/disable checkbox (only for body params, not path segments)
+	if (showEnableCheckbox) {
+		const checkbox = document.createElement('input');
+		checkbox.type = 'checkbox';
+		checkbox.className = 'field-enable-checkbox';
+		checkbox.checked = enabled;
+		checkbox.dataset.key = key;
+		checkbox.addEventListener('change', function() {
+			if (this.checked) {
+				div.classList.remove('field-disabled');
+			} else {
+				div.classList.add('field-disabled');
+			}
+		});
+		labelContainer.appendChild(checkbox);
+		
+		// Apply initial disabled state
+		if (!enabled) {
+			div.classList.add('field-disabled');
+		}
+	}
+	
 	const label = document.createElement('label');
 	label.innerHTML = key + ' <span class="field-type">(' + type + ')</span>';
-	div.appendChild(label);
+	labelContainer.appendChild(label);
+	div.appendChild(labelContainer);
 	
 	let input;
 	
@@ -136,13 +169,25 @@ function validateFormField(e) {
 /**
  * Get JSON object from form inputs
  * @param {HTMLElement} formElement - Form container element
+ * @param {boolean} includeDisabled - Whether to include disabled fields (default false)
  * @returns {object} JSON object with form values
  */
-function getFormJson(formElement) {
+function getFormJson(formElement, includeDisabled) {
 	const result = {};
-	const inputs = formElement.querySelectorAll('input, select');
+	const formFields = formElement.querySelectorAll('.form-field');
 	
-	for (const input of inputs) {
+	for (const field of formFields) {
+		// Skip disabled fields unless includeDisabled is true
+		if (!includeDisabled && field.classList.contains('field-disabled')) {
+			continue;
+		}
+		
+		// Find the actual input (not the checkbox), by looking for data-type attribute
+		const input = field.querySelector('input[data-type], select[data-type]');
+		if (!input) {
+			continue;
+		}
+		
 		const key = input.dataset.key;
 		const type = input.dataset.type;
 		const value = input.value;
@@ -165,4 +210,41 @@ function getFormJson(formElement) {
 	}
 	
 	return result;
+}
+
+/**
+ * Get enabled state for all form fields
+ * @param {HTMLElement} formElement - Form container element
+ * @returns {object} Object mapping field keys to enabled state
+ */
+function getFormEnabledState(formElement) {
+	const result = {};
+	const checkboxes = formElement.querySelectorAll('.field-enable-checkbox');
+	
+	for (const checkbox of checkboxes) {
+		const key = checkbox.dataset.key;
+		if (key) {
+			result[key] = checkbox.checked;
+		}
+	}
+	
+	return result;
+}
+
+/**
+ * Get list of disabled param names
+ * @param {HTMLElement} formElement - Form container element
+ * @returns {string[]} Array of disabled param names
+ */
+function getDisabledParams(formElement) {
+	const disabled = [];
+	const checkboxes = formElement.querySelectorAll('.field-enable-checkbox');
+	
+	for (const checkbox of checkboxes) {
+		if (!checkbox.checked && checkbox.dataset.key) {
+			disabled.push(checkbox.dataset.key);
+		}
+	}
+	
+	return disabled;
 }
