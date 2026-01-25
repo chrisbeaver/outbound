@@ -247,6 +247,12 @@
     transform: scale(0.92);
 }
 
+.params-divider {
+    height: 1px;
+    background-color: var(--vscode-widget-border);
+    margin: 12px 0;
+}
+
 .add-query-param-row {
     display: flex;
     gap: 8px;
@@ -269,14 +275,6 @@
 .add-query-param-value:focus {
     outline: 1px solid var(--vscode-focusBorder);
     border-color: var(--vscode-focusBorder);
-}
-
-.request-body-section .section-title {
-    display: none;
-}
-
-.uri-segments-section + .request-body-section .section-title {
-    display: block;
 }
 
 .modal-form {
