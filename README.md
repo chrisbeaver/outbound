@@ -119,7 +119,6 @@ public function update(Request $request, $id)
 Lapi recognizes these validation patterns:
 
 - `$request->validate([...])`
-- `$request->validated([...])`
 - `$this->validate($request, [...])`
 - `Validator::make($request->all(), [...])->validate()`
 - `Request::validate([...])`
