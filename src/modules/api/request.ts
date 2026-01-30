@@ -10,7 +10,7 @@ export type { ApiResponse, RequestOptions };
  * Get the API host from extension settings
  */
 export function getApiHost(): string {
-	const config = vscode.workspace.getConfiguration('lapi');
+	const config = vscode.workspace.getConfiguration('outbound');
 	return config.get<string>('apiHost', 'http://localhost:8000');
 }
 

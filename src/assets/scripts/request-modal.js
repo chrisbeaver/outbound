@@ -36,7 +36,7 @@ const queryParamsState = {};
 
 // Fallback openModal function in case init fails
 window.openModal = function(method, uri, fieldsJson) {
-	console.error('[Lapi] openModal called but modal not initialized');
+	console.error('[Outbound] openModal called but modal not initialized');
 };
 
 /**
@@ -1153,6 +1153,6 @@ function initRequestModal(config) {
 		}
 	});
 	} catch (err) {
-		console.error('[Lapi] Error initializing request modal:', err);
+		console.error('[Outbound] Error initializing request modal:', err);
 	}
 }

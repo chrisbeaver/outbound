@@ -93,7 +93,7 @@ export async function identifyLaravelRoutes(outputChannel: vscode.OutputChannel)
 		const workspacePath = workspaceFolders[0].uri.fsPath;
 
 		// Get the route list command from settings, append --json for parseable output
-		const config = vscode.workspace.getConfiguration('lapi');
+		const config = vscode.workspace.getConfiguration('outbound');
 		const baseCommand = config.get<string>('routeListCommand', 'php artisan route:list');
 		const routeListCommand = `${baseCommand} --json`;
 

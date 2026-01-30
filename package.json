@@ -1,6 +1,6 @@
 {
-  "name": "lapi",
-  "displayName": "Lapi",
+  "name": "outbound",
+  "displayName": "Outbound",
   "description": "Laravel API Tester",
   "version": "0.0.1",
   "engines": {
@@ -11,43 +11,43 @@
   ],
   "activationEvents": [
     "workspaceContains:**/artisan",
-    "onCommand:lapi.testEndpoint",
-    "onCommand:lapi.displayRoutesTable"
+    "onCommand:outbound.testEndpoint",
+    "onCommand:outbound.displayRoutesTable"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "lapi.displayRoutesTable",
-        "title": "Lapi: Display Routes Table"
+        "command": "outbound.displayRoutesTable",
+        "title": "Outbound: Display Routes Table"
       },
       {
-        "command": "lapi.testEndpoint",
-        "title": "Lapi: Test Endpoint"
+        "command": "outbound.testEndpoint",
+        "title": "Outbound: Test Endpoint"
       },
       {
-        "command": "lapi.testEndpointFromContext",
-        "title": "Lapi: Test Endpoint"
+        "command": "outbound.testEndpointFromContext",
+        "title": "Outbound: Test Endpoint"
       }
     ],
     "menus": {
       "editor/context": [
         {
-          "command": "lapi.testEndpointFromContext",
+          "command": "outbound.testEndpointFromContext",
           "when": "editorLangId == php",
           "group": "navigation"
         }
       ]
     },
     "configuration": {
-      "title": "Lapi",
+      "title": "Outbound",
       "properties": {
-        "lapi.apiHost": {
+        "outbound.apiHost": {
           "type": "string",
           "default": "http://localhost:8000",
           "description": "The base URL for the Laravel API server"
         },
-        "lapi.routeListCommand": {
+        "outbound.routeListCommand": {
           "type": "string",
           "default": "php artisan route:list",
           "description": "Command to list Laravel routes"

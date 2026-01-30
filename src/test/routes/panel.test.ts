@@ -31,7 +31,7 @@ suite('RoutesPanel Test Suite', () => {
     });
 
     test('should have correct view type', () => {
-        assert.strictEqual(RoutesPanel.viewType, 'lapiRoutesTable');
+        assert.strictEqual(RoutesPanel.viewType, 'outboundRoutesTable');
     });
 
     test('should start with no current panel', () => {
@@ -44,7 +44,7 @@ suite('RoutesPanel Test Suite', () => {
         this.timeout(10000);
 
         // Get a valid extension URI
-        const extension = vscode.extensions.getExtension('undefined_publisher.lapi');
+        const extension = vscode.extensions.getExtension('undefined_publisher.outbound');
         if (!extension) {
             // Skip test if extension is not available in test environment
             this.skip();
@@ -52,7 +52,7 @@ suite('RoutesPanel Test Suite', () => {
         }
 
         const extensionUri = extension.extensionUri;
-        const outputChannel = vscode.window.createOutputChannel('Lapi Test');
+        const outputChannel = vscode.window.createOutputChannel('Outbound Test');
         const mockContext = createMockContext();
         RoutesPanel.createOrShow(extensionUri, outputChannel, mockContext);
 
@@ -62,14 +62,14 @@ suite('RoutesPanel Test Suite', () => {
     test('should reuse existing panel when createOrShow is called twice', async function () {
         this.timeout(10000);
 
-        const extension = vscode.extensions.getExtension('undefined_publisher.lapi');
+        const extension = vscode.extensions.getExtension('undefined_publisher.outbound');
         if (!extension) {
             this.skip();
             return;
         }
 
         const extensionUri = extension.extensionUri;
-        const outputChannel = vscode.window.createOutputChannel('Lapi Test');
+        const outputChannel = vscode.window.createOutputChannel('Outbound Test');
         const mockContext = createMockContext();
 
         RoutesPanel.createOrShow(extensionUri, outputChannel, mockContext);
@@ -84,14 +84,14 @@ suite('RoutesPanel Test Suite', () => {
     test('should dispose panel correctly', async function () {
         this.timeout(10000);
 
-        const extension = vscode.extensions.getExtension('undefined_publisher.lapi');
+        const extension = vscode.extensions.getExtension('undefined_publisher.outbound');
         if (!extension) {
             this.skip();
             return;
         }
 
         const extensionUri = extension.extensionUri;
-        const outputChannel = vscode.window.createOutputChannel('Lapi Test');
+        const outputChannel = vscode.window.createOutputChannel('Outbound Test');
         const mockContext = createMockContext();
 
         RoutesPanel.createOrShow(extensionUri, outputChannel, mockContext);

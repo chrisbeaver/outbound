@@ -1,6 +1,6 @@
-# Lapi - Laravel API Development Extension for VS Code
+# Outbound - Laravel API Development Extension for VS Code
 
-Lapi is a powerful Visual Studio Code extension designed specifically for Laravel API development. It provides a comprehensive suite of tools for testing, debugging, and managing your Laravel API endpoints directly from your editor.
+Outbound is a powerful Visual Studio Code extension designed specifically for Laravel API development. It provides a comprehensive suite of tools for testing, debugging, and managing your Laravel API endpoints directly from your editor.
 
 ## Table of Contents
 
@@ -32,24 +32,24 @@ Lapi is a powerful Visual Studio Code extension designed specifically for Larave
 
 1. Open VS Code
 2. Go to Extensions (Ctrl+Shift+X)
-3. Search for "Lapi"
+3. Search for "Outbound"
 4. Click Install
 
 Or install via the command line:
 ```bash
-code --install-extension lapi
+code --install-extension outbound
 ```
 
 ## Configuration
 
-Access Lapi settings by clicking the gear icon (⚙️) next to "Laravel Routes" in the panel header, or navigate to **Settings > Extensions > Lapi**.
+Access Outbound settings by clicking the gear icon (⚙️) next to "Laravel Routes" in the panel header, or navigate to **Settings > Extensions > Outbound**.
 
 ### Available Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `lapi.apiHost` | `http://localhost:8000` | The base URL for your Laravel API server |
-| `lapi.routeListCommand` | `php artisan route:list` | Command used to fetch Laravel routes |
+| `outbound.apiHost` | `http://localhost:8000` | The base URL for your Laravel API server |
+| `outbound.routeListCommand` | `php artisan route:list` | Command used to fetch Laravel routes |
 
 ### Workspace-Specific Configuration
 
@@ -59,7 +59,7 @@ All settings can be configured at the workspace level, allowing different projec
 
 ### Automatic Route Discovery
 
-When you open a Laravel project, Lapi automatically runs `php artisan route:list --json` to discover all registered routes. The routes panel displays:
+When you open a Laravel project, Outbound automatically runs `php artisan route:list --json` to discover all registered routes. The routes panel displays:
 
 - **Request Method**: GET, POST, PUT, PATCH, DELETE (with color-coded badges)
 - **URI**: The endpoint path including route parameters
@@ -68,11 +68,11 @@ When you open a Laravel project, Lapi automatically runs `php artisan route:list
 
 ### Request Parameter Detection
 
-Lapi goes beyond simple route listing by analyzing your Laravel code to extract request parameters. It follows Laravel conventions and supports multiple validation patterns:
+Outbound goes beyond simple route listing by analyzing your Laravel code to extract request parameters. It follows Laravel conventions and supports multiple validation patterns:
 
 #### Form Request Classes
 
-When your controller method type-hints a Form Request class, Lapi automatically locates and parses the `rules()` method:
+When your controller method type-hints a Form Request class, Outbound automatically locates and parses the `rules()` method:
 
 ```php
 // App\Http\Controllers\CampaignController.php
@@ -97,11 +97,11 @@ class StoreCampaignRequest extends FormRequest
 }
 ```
 
-Lapi will detect all five parameters and their types, pre-populating the request builder with appropriate input controls.
+Outbound will detect all five parameters and their types, pre-populating the request builder with appropriate input controls.
 
 #### Inline Validation
 
-Lapi also detects inline validation in controller methods:
+Outbound also detects inline validation in controller methods:
 
 ```php
 public function update(Request $request, $id)
@@ -116,7 +116,7 @@ public function update(Request $request, $id)
 
 #### Supported Validation Patterns
 
-Lapi recognizes these validation patterns:
+Outbound recognizes these validation patterns:
 
 - `$request->validate([...])`
 - `$this->validate($request, [...])`
@@ -169,8 +169,8 @@ The Request Body Builder is an interactive modal for configuring and executing A
 There are multiple ways to open the request builder:
 
 1. **Click the Request button** in the routes panel table
-2. **Right-click in a controller file** and select "Lapi: Test Endpoint"
-3. **Use the command palette**: `Lapi: Test Endpoint`
+2. **Right-click in a controller file** and select "Outbound: Test Endpoint"
+3. **Use the command palette**: `Outbound: Test Endpoint`
 
 ### Modal Sections
 
@@ -232,7 +232,7 @@ Custom parameters also support enable/disable toggles and persist to workspace s
 
 #### Object/Array Editor
 
-For complex nested data structures, Lapi provides a visual tree editor. Click the **Edit** button on any array or object field to open the Object Editor modal.
+For complex nested data structures, Outbound provides a visual tree editor. Click the **Edit** button on any array or object field to open the Object Editor modal.
 
 The Object Editor supports:
 - **Infinite Nesting**: Create deeply nested object structures
@@ -257,7 +257,7 @@ To reset all modifications and return to the auto-detected defaults, click **Res
 
 ## Authentication & Bearer Tokens
 
-Lapi provides comprehensive bearer token management for authenticating API requests.
+Outbound provides comprehensive bearer token management for authenticating API requests.
 
 ### Managing Tokens
 
@@ -361,9 +361,9 @@ This provides quick navigation from route discovery to code implementation.
 ### Context Menu Integration
 
 Right-click anywhere in a controller file to access:
-- **Lapi: Test Endpoint**: Opens the request builder for the route handled by the method at your cursor position
+- **Outbound: Test Endpoint**: Opens the request builder for the route handled by the method at your cursor position
 
-Lapi intelligently determines which route corresponds to your cursor position by:
+Outbound intelligently determines which route corresponds to your cursor position by:
 1. Identifying the controller file
 2. Finding the method containing the cursor
 3. Matching it to the registered route
@@ -376,8 +376,8 @@ Access these commands via the Command Palette (Ctrl+Shift+P):
 
 | Command | Description |
 |---------|-------------|
-| `Lapi: Display Routes Table` | Opens the Laravel Routes panel |
-| `Lapi: Test Endpoint` | Opens request builder for the current controller method |
+| `Outbound: Display Routes Table` | Opens the Laravel Routes panel |
+| `Outbound: Test Endpoint` | Opens request builder for the current controller method |
 
 ### Modal Keyboard Shortcuts
 
@@ -403,7 +403,7 @@ Access these commands via the Command Palette (Ctrl+Shift+P):
 ### Server Shows Offline
 
 1. **Start Laravel Server**: Run `php artisan serve` in your project
-2. **Check API Host**: Verify `lapi.apiHost` matches your server URL
+2. **Check API Host**: Verify `outbound.apiHost` matches your server URL
 3. **Firewall/Proxy**: Ensure no network restrictions block localhost connections
 
 ### Request Fails

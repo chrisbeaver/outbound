@@ -6,19 +6,19 @@ import { getRouteStorage } from './manager';
 import { executeRequest, checkServerStatus, getApiHost } from '../api/request';
 import { buildCurlCommand } from '../api/curl-builder';
 
-const WORKSPACE_STATE_KEY = 'lapi.requestParams';
-const PATH_PARAMS_STATE_KEY = 'lapi.pathParams';
-const BEARER_TOKENS_KEY = 'lapi.bearerTokens';
-const SELECTED_TOKEN_KEY = 'lapi.selectedToken';
-const CUSTOM_PARAMS_KEY = 'lapi.customParams';
-const QUERY_PARAMS_KEY = 'lapi.queryParams';
+const WORKSPACE_STATE_KEY = 'outbound.requestParams';
+const PATH_PARAMS_STATE_KEY = 'outbound.pathParams';
+const BEARER_TOKENS_KEY = 'outbound.bearerTokens';
+const SELECTED_TOKEN_KEY = 'outbound.selectedToken';
+const CUSTOM_PARAMS_KEY = 'outbound.customParams';
+const QUERY_PARAMS_KEY = 'outbound.queryParams';
 
 /**
  * Manages the Routes Table webview panel
  */
 export class RoutesPanel {
 	public static currentPanel: RoutesPanel | undefined;
-	public static readonly viewType = 'lapiRoutesTable';
+	public static readonly viewType = 'outboundRoutesTable';
 
 	private readonly _panel: vscode.WebviewPanel;
 	private readonly _extensionUri: vscode.Uri;
@@ -296,7 +296,7 @@ export class RoutesPanel {
 				} else if (message.command === 'openExtensionSettings') {
 					// Open extension settings in workspace scope
 					vscode.commands.executeCommand('workbench.action.openWorkspaceSettings', {
-						query: 'lapi'
+						query: 'outbound'
 					});
 				}
 			},
@@ -520,7 +520,7 @@ ${objectEditorJs}
 		});
 		initObjectEditor();
 		
-		console.log('[Lapi] Scripts initialized');
+		console.log('[Outbound] Scripts initialized');
 		
 		// Handle submit button clicks
 		document.addEventListener('click', function(e) {
@@ -535,7 +535,7 @@ ${objectEditorJs}
 					// The attribute has &quot; which the browser converts back to "
 					defaultQueryParams = JSON.parse(queryParamsAttr);
 				} catch (err) {
-					console.error('[Lapi] Failed to parse query params:', err, queryParamsAttr);
+					console.error('[Outbound] Failed to parse query params:', err, queryParamsAttr);
 				}
 				if (method && uri && fields !== null) {
 					window.openModal(method, uri, fields, defaultQueryParams);

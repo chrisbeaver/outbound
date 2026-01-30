@@ -18,10 +18,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "lapi" is now active!');
+	console.log('Congratulations, your extension "outbound" is now active!');
 
 	// Create output channel for displaying routes
-	outputChannel = vscode.window.createOutputChannel('Lapi');
+	outputChannel = vscode.window.createOutputChannel('Outbound');
 	context.subscriptions.push(outputChannel);
 
 	// Identify Laravel routes on activation
@@ -33,30 +33,30 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Watch for PHP file saves and refresh routes
 	const phpFileWatcher = vscode.workspace.onDidSaveTextDocument(async (document) => {
 		if (document.languageId === 'php' || document.fileName.endsWith('.php')) {
-			console.log('[Lapi] PHP file saved, refreshing routes...');
+			console.log('[Outbound] PHP file saved, refreshing routes...');
 			await refreshRoutes();
 		}
 	});
 	context.subscriptions.push(phpFileWatcher);
 
 	// Register Display Routes Table command
-	const displayRoutesCommand = vscode.commands.registerCommand('lapi.displayRoutesTable', () => {
+	const displayRoutesCommand = vscode.commands.registerCommand('outbound.displayRoutesTable', () => {
 		RoutesPanel.createOrShow(context.extensionUri, outputChannel, context);
 	});
 	context.subscriptions.push(displayRoutesCommand);
 
 	// Register Test Endpoint command (from Command Palette - just opens routes table)
-	const testEndpointCommand = vscode.commands.registerCommand('lapi.testEndpoint', async () => {
+	const testEndpointCommand = vscode.commands.registerCommand('outbound.testEndpoint', async () => {
 		RoutesPanel.createOrShow(context.extensionUri, outputChannel, context);
 	});
 	context.subscriptions.push(testEndpointCommand);
 
 	// Register Test Endpoint From Context (from right-click - finds route and opens modal)
-	const testEndpointFromContextCommand = vscode.commands.registerCommand('lapi.testEndpointFromContext', async () => {
-		vscode.window.showInformationMessage('Lapi: Test Endpoint triggered');
-		console.log('[Lapi] Test Endpoint command invoked from context menu');
+	const testEndpointFromContextCommand = vscode.commands.registerCommand('outbound.testEndpointFromContext', async () => {
+		vscode.window.showInformationMessage('Outbound: Test Endpoint triggered');
+		console.log('[Outbound] Test Endpoint command invoked from context menu');
 		if (outputChannel) {
-			outputChannel.appendLine('[Lapi] Test Endpoint command invoked from context menu');
+			outputChannel.appendLine('[Outbound] Test Endpoint command invoked from context menu');
 			outputChannel.show(true);
 		}
 		
@@ -76,18 +76,18 @@ export async function activate(context: vscode.ExtensionContext) {
 		const position = editor.selection.active;
 
 		let route: LaravelRoute | null = null;
-		console.log('[Lapi] Finding route at cursor position');
-		if (outputChannel) { outputChannel.appendLine('[Lapi] Finding route at cursor position'); }
+		console.log('[Outbound] Finding route at cursor position');
+		if (outputChannel) { outputChannel.appendLine('[Outbound] Finding route at cursor position'); }
 		try {
 			// Find the route that matches the current file and cursor position
 			route = findRouteAtPosition(document, position);
 		} catch (err) {
 			if (outputChannel) {
-				outputChannel.appendLine(`[Lapi] Error while finding route: ${err}`);
+				outputChannel.appendLine(`[Outbound] Error while finding route: ${err}`);
 				outputChannel.show(true);
 			}
-			console.error('[Lapi] Error while finding route:', err);
-			vscode.window.showErrorMessage('Error finding route. See Lapi output for details.');
+			console.error('[Outbound] Error while finding route:', err);
+			vscode.window.showErrorMessage('Error finding route. See Outbound output for details.');
 			return;
 		}
 
@@ -132,7 +132,7 @@ function findRouteAtPosition(document: vscode.TextDocument, position: vscode.Pos
 	// Check if this is a PHP file
 	if (!filePath.endsWith('.php')) {
 		if (outputChannel) {
-			outputChannel.appendLine(`[Lapi] Not a PHP file: ${filePath}`);
+			outputChannel.appendLine(`[Outbound] Not a PHP file: ${filePath}`);
 			outputChannel.show(true);
 		}
 		return null;
@@ -142,8 +142,8 @@ function findRouteAtPosition(document: vscode.TextDocument, position: vscode.Pos
 	const routes = storage.getAll();
 
 	if (outputChannel) {
-		outputChannel.appendLine(`[Lapi] Looking for route in file: ${filePath}`);
-		outputChannel.appendLine(`[Lapi] Total routes loaded: ${routes.length}`);
+		outputChannel.appendLine(`[Outbound] Looking for route in file: ${filePath}`);
+		outputChannel.appendLine(`[Outbound] Total routes loaded: ${routes.length}`);
 		outputChannel.show(true);
 	}
 
@@ -161,14 +161,14 @@ function findRouteAtPosition(document: vscode.TextDocument, position: vscode.Pos
 			normalizedControllerPath.endsWith(normalizedFilePath.split('/').slice(-4).join('/'));
 		
 		if (route.controllerPath && outputChannel) {
-			outputChannel.appendLine(`[Lapi] Comparing: ${normalizedFilePath} vs ${normalizedControllerPath} = ${matches}`);
+			outputChannel.appendLine(`[Outbound] Comparing: ${normalizedFilePath} vs ${normalizedControllerPath} = ${matches}`);
 			outputChannel.show(true);
 		}
 		return matches;
 	});
 
 	if (outputChannel) {
-		outputChannel.appendLine(`[Lapi] Matching routes for file: ${matchingRoutes.length}`);
+		outputChannel.appendLine(`[Outbound] Matching routes for file: ${matchingRoutes.length}`);
 		outputChannel.show(true);
 	}
 
@@ -182,7 +182,7 @@ function findRouteAtPosition(document: vscode.TextDocument, position: vscode.Pos
 			const className = classMatch[1];
 			const fqcn = `${namespace}\\${className}`;
 			if (outputChannel) {
-				outputChannel.appendLine(`[Lapi] Trying FQCN match: ${fqcn}`);
+				outputChannel.appendLine(`[Outbound] Trying FQCN match: ${fqcn}`);
 			}
 
 			const routesByFqcn = routes.filter(route => {
@@ -192,7 +192,7 @@ function findRouteAtPosition(document: vscode.TextDocument, position: vscode.Pos
 			});
 
 			if (outputChannel) {
-				outputChannel.appendLine(`[Lapi] Routes matching FQCN/class: ${routesByFqcn.length}`);
+				outputChannel.appendLine(`[Outbound] Routes matching FQCN/class: ${routesByFqcn.length}`);
 				outputChannel.show(true);
 			}
 
@@ -206,7 +206,7 @@ function findRouteAtPosition(document: vscode.TextDocument, position: vscode.Pos
 		const routesByFileName = routes.filter(route => route.controller && route.controller.includes(fileName));
 		if (routesByFileName.length > 0) {
 			if (outputChannel) {
-				outputChannel.appendLine(`[Lapi] Routes matching by file name: ${routesByFileName.length}`);
+				outputChannel.appendLine(`[Outbound] Routes matching by file name: ${routesByFileName.length}`);
 				outputChannel.show(true);
 			}
 			return findRouteByMethod(documentText, document.offsetAt(position), routesByFileName);
@@ -230,13 +230,13 @@ function findRouteByMethod(documentText: string, cursorOffset: number, routes: L
 
 		const methodRange = findMethodRange(documentText, route.controllerMethod);
 		if (outputChannel) {
-			outputChannel.appendLine(`[Lapi] Method range for ${route.controllerMethod}: ${methodRange ? JSON.stringify(methodRange) : 'null'} cursor at: ${cursorOffset}`);
+			outputChannel.appendLine(`[Outbound] Method range for ${route.controllerMethod}: ${methodRange ? JSON.stringify(methodRange) : 'null'} cursor at: ${cursorOffset}`);
 			outputChannel.show(true);
 		}
 
 		if (methodRange && cursorOffset >= methodRange.start && cursorOffset <= methodRange.end) {
 			if (outputChannel) {
-				outputChannel.appendLine(`[Lapi] Found matching route: ${route.method} ${route.uri}`);
+				outputChannel.appendLine(`[Outbound] Found matching route: ${route.method} ${route.uri}`);
 				outputChannel.show(true);
 			}
 			return route;
@@ -247,7 +247,7 @@ function findRouteByMethod(documentText: string, cursorOffset: number, routes: L
 	for (const route of getRouteStorage().getAll()) {
 		if (route.controllerMethod && route.controllerMethod === routes[0]?.controllerMethod) {
 			if (outputChannel) {
-				outputChannel.appendLine(`[Lapi] Fallback matched route by method name: ${route.method} ${route.uri}`);
+				outputChannel.appendLine(`[Outbound] Fallback matched route by method name: ${route.method} ${route.uri}`);
 				outputChannel.show(true);
 			}
 			return route;
@@ -255,7 +255,7 @@ function findRouteByMethod(documentText: string, cursorOffset: number, routes: L
 	}
 
 	if (outputChannel) {
-		outputChannel.appendLine('[Lapi] No method matched cursor position');
+		outputChannel.appendLine('[Outbound] No method matched cursor position');
 		outputChannel.show(true);
 	}
 	return null;
@@ -368,9 +368,9 @@ async function refreshRoutes(): Promise<void> {
 		// Re-parse validation rules
 		await parseRouteValidation(outputChannel);
 
-		console.log('[Lapi] Routes refreshed successfully');
+		console.log('[Outbound] Routes refreshed successfully');
 	} catch (error) {
-		console.error('[Lapi] Error refreshing routes:', error);
+		console.error('[Outbound] Error refreshing routes:', error);
 	}
 }
 
