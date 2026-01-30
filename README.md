@@ -42,7 +42,7 @@ code --install-extension outbound
 
 ## Configuration
 
-Access Outbound settings by clicking the gear icon (⚙️) next to "Laravel Routes" in the panel header, or navigate to **Settings > Extensions > Outbound**.
+Access Outbound settings by clicking the gear icon (⚙️) next to "Outbound" in the panel header, or navigate to **Settings > Extensions > Outbound**.
 
 ### Available Settings
 
@@ -65,6 +65,8 @@ When you open a Laravel project, Outbound automatically runs `php artisan route:
 - **URI**: The endpoint path including route parameters
 - **Route Name**: Laravel's named route identifier
 - **Controller**: The controller class and method handling the request
+
+![Routes Panel](docs/images/routes-panel.png)
 
 ### Request Parameter Detection
 
@@ -166,11 +168,12 @@ The Request Body Builder is an interactive modal for configuring and executing A
 
 ### Opening the Request Builder
 
-There are multiple ways to open the request builder:
+There are two ways to open the request builder:
 
 1. **Click the Request button** in the routes panel table
 2. **Right-click in a controller file** and select "Outbound: Test Endpoint"
-3. **Use the command palette**: `Outbound: Test Endpoint`
+
+![Request Body Builder](docs/images/request-modal.png)
 
 ### Modal Sections
 
@@ -240,6 +243,8 @@ The Object Editor supports:
 - **Add/Remove Fields**: Easily manipulate the structure
 - **Expand/Collapse All**: Navigation buttons appear when nested structures exist
 - **Live Preview**: See the resulting JSON as you edit
+
+![Object Editor](docs/images/object-editor.png)
 
 ### Persistence & State Management
 
@@ -363,6 +368,8 @@ This provides quick navigation from route discovery to code implementation.
 Right-click anywhere in a controller file to access:
 - **Outbound: Test Endpoint**: Opens the request builder for the route handled by the method at your cursor position
 
+![Context Menu](docs/images/context-menu.png)
+
 Outbound intelligently determines which route corresponds to your cursor position by:
 1. Identifying the controller file
 2. Finding the method containing the cursor
@@ -376,7 +383,7 @@ Access these commands via the Command Palette (Ctrl+Shift+P):
 
 | Command | Description |
 |---------|-------------|
-| `Outbound: Display Routes Table` | Opens the Laravel Routes panel |
+| `Outbound: Display Routes Table` | Opens the Outbound panel |
 | `Outbound: Test Endpoint` | Opens request builder for the current controller method |
 
 ### Modal Keyboard Shortcuts

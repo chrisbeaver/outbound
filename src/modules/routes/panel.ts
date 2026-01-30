@@ -41,7 +41,7 @@ export class RoutesPanel {
 		// Otherwise, create a new panel
 		const panel = vscode.window.createWebviewPanel(
 			RoutesPanel.viewType,
-			'Laravel Routes',
+			'Outbound',
 			column || vscode.ViewColumn.One,
 			{
 				enableScripts: true,
@@ -68,7 +68,7 @@ export class RoutesPanel {
 		// Otherwise, create a new panel
 		const panel = vscode.window.createWebviewPanel(
 			RoutesPanel.viewType,
-			'Laravel Routes',
+			'Outbound',
 			column || vscode.ViewColumn.One,
 			{
 				enableScripts: true,
@@ -374,7 +374,7 @@ export class RoutesPanel {
 
 	private _update() {
 		const webview = this._panel.webview;
-		this._panel.title = 'Laravel Routes';
+		this._panel.title = 'Outbound';
 		this._panel.webview.html = this._getHtmlForWebview(webview);
 
 		// If there's a pending route, open the modal after webview is ready
@@ -476,7 +476,7 @@ export class RoutesPanel {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Laravel Routes</title>
+	<title>Outbound</title>
 	<style>
 ${mainCss}
 ${routesTableCss}
