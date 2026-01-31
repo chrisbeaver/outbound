@@ -423,3 +423,11 @@ Access these commands via the Command Palette (Ctrl+Shift+P):
 
 1. **Laravel Project**: The extension activates only in workspaces containing an `artisan` file
 2. **Reload Window**: Try `Developer: Reload Window` from the command palette
+
+## Contributing
+
+Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## License
+
+This extension is licensed under the [MIT License](LICENSE).
