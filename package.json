@@ -2,7 +2,7 @@
   "name": "outbound",
   "displayName": "Outbound",
   "description": "Laravel API Tester",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "engines": {
     "vscode": "^1.108.1"
   },
@@ -11,6 +11,7 @@
   "categories": [
     "Other"
   ],
+  "icon": "docs/images/outbound.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/chrisbeaver/outbound.git"
