@@ -66,7 +66,7 @@ When you open a Laravel project, Outbound automatically runs `php artisan route:
 - **Route Name**: Laravel's named route identifier
 - **Controller**: The controller class and method handling the request
 
-<img width="1590" height="948" alt="routes-panel" src="https://github.com/user-attachments/assets/c57787d0-6619-4d88-ae8f-ad5c82b4339c" />
+<img width="800" alt="routes-panel" src="https://github.com/user-attachments/assets/c57787d0-6619-4d88-ae8f-ad5c82b4339c" />
 
 ### Request Parameter Detection
 
@@ -173,7 +173,7 @@ There are two ways to open the request builder:
 1. **Click the Request button** in the routes panel table
 2. **Right-click in a controller file** and select "Outbound: Test Endpoint"
 
-<img width="1193" height="832" alt="request-modal" src="https://github.com/user-attachments/assets/2c5d3d1d-ebab-4211-b9d1-11b9756325aa" />
+<img width="800" alt="request-modal" src="https://github.com/user-attachments/assets/2c5d3d1d-ebab-4211-b9d1-11b9756325aa" />
 
 ### Modal Sections
 
@@ -244,7 +244,7 @@ The Object Editor supports:
 - **Expand/Collapse All**: Navigation buttons appear when nested structures exist
 - **Live Preview**: See the resulting JSON as you edit
 
-<img width="1450" height="847" alt="object-editor" src="https://github.com/user-attachments/assets/dec8de9b-ee1c-4ddb-80e9-186962445e9b" />
+<img width="800" alt="object-editor" src="https://github.com/user-attachments/assets/dec8de9b-ee1c-4ddb-80e9-186962445e9b" />
 
 ### Persistence & State Management
 
@@ -368,7 +368,7 @@ This provides quick navigation from route discovery to code implementation.
 Right-click anywhere in a controller file to access:
 - **Outbound: Test Endpoint**: Opens the request builder for the route handled by the method at your cursor position
   
-<img width="1424" height="622" alt="context-menu" src="https://github.com/user-attachments/assets/db42133d-515a-4ba8-9c21-09f2b737fbd4" />
+<img width="800" alt="context-menu" src="https://github.com/user-attachments/assets/db42133d-515a-4ba8-9c21-09f2b737fbd4" />
 
 Outbound intelligently determines which route corresponds to your cursor position by:
 1. Identifying the controller file
