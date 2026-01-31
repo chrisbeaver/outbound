@@ -88,6 +88,64 @@ suite('cURL Builder Test Suite', () => {
 			assert.ok(curl.includes('sort=name'));
 		});
 
+		test('should include custom headers', () => {
+			const curl = buildCurlCommand({
+				method: 'GET',
+				url: 'http://localhost:8000/api/users',
+				headers: {
+					'X-Custom-Header': 'custom-value',
+					'X-Request-ID': '12345'
+				}
+			});
+			
+			assert.ok(curl.includes("-H 'X-Custom-Header: custom-value'"));
+			assert.ok(curl.includes("-H 'X-Request-ID: 12345'"));
+		});
+
+		test('should include custom headers with bearer token', () => {
+			const curl = buildCurlCommand({
+				method: 'POST',
+				url: 'http://localhost:8000/api/users',
+				bearerToken: 'my-token',
+				headers: {
+					'X-Custom-Header': 'value'
+				}
+			});
+			
+			assert.ok(curl.includes("Authorization: Bearer my-token"));
+			assert.ok(curl.includes("-H 'X-Custom-Header: value'"));
+		});
+
+		test('should not duplicate Accept or Content-Type from custom headers', () => {
+			const curl = buildCurlCommand({
+				method: 'POST',
+				url: 'http://localhost:8000/api/users',
+				bodyParams: { name: 'test' },
+				headers: {
+					'Accept': 'text/html',
+					'Content-Type': 'text/plain'
+				}
+			});
+			
+			// Should only have the default Accept and Content-Type, not duplicates
+			const acceptMatches = curl.match(/Accept:/g);
+			const contentTypeMatches = curl.match(/Content-Type:/g);
+			assert.strictEqual(acceptMatches?.length, 1, 'Should have exactly one Accept header');
+			assert.strictEqual(contentTypeMatches?.length, 1, 'Should have exactly one Content-Type header');
+		});
+
+		test('should escape special characters in custom header values', () => {
+			const curl = buildCurlCommand({
+				method: 'GET',
+				url: 'http://localhost:8000/api/users',
+				headers: {
+					'X-Special': "value'with'quotes"
+				}
+			});
+			
+			assert.ok(curl.includes("X-Special: value'\\''with'\\''quotes"));
+		});
+
 		test('should handle multipart form data', () => {
 			const curl = buildCurlCommand({
 				method: 'POST',

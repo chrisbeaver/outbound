@@ -1,0 +1,43 @@
+<div class="headers-modal-overlay" id="headers-modal-overlay">
+    <div class="headers-modal">
+        <div class="headers-modal-header">
+            <h2 class="headers-modal-title">Request Headers</h2>
+            <button class="headers-modal-close" id="headers-modal-close">&times;</button>
+        </div>
+        <div class="headers-modal-body">
+            <!-- Authorization section (read-only) -->
+            <div class="headers-section">
+                <h3 class="headers-section-title">Authorization</h3>
+                <div class="headers-auth-preview" id="headers-auth-preview">
+                    <div class="headers-auth-row headers-readonly">
+                        <div class="headers-auth-label">Authorization</div>
+                        <div class="headers-auth-value" id="headers-auth-value">No auth token selected</div>
+                    </div>
+                </div>
+                <div class="headers-readonly-note">This is set via the Auth Token dropdown and cannot be edited here.</div>
+            </div>
+
+            <!-- Custom headers section -->
+            <div class="headers-section">
+                <h3 class="headers-section-title">Custom Headers</h3>
+                <div class="headers-list" id="headers-list">
+                    <div class="headers-no-items" id="headers-no-items">No custom headers defined</div>
+                </div>
+                
+                <!-- Add new header form -->
+                <div class="headers-add-form">
+                    <div class="headers-add-row">
+                        <input type="text" id="headers-add-key" placeholder="Header name (e.g., X-Custom-Header)" class="headers-input" />
+                        <input type="text" id="headers-add-value" placeholder="Header value" class="headers-input" />
+                        <button class="headers-add-btn" id="headers-add-btn">
+                            <span class="headers-add-icon">+</span> Add
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="headers-modal-footer">
+            <button class="headers-modal-btn headers-modal-btn-secondary" id="headers-modal-done">Done</button>
+        </div>
+    </div>
+</div>

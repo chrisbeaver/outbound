@@ -709,4 +709,110 @@ suite('API Request Module Test Suite', () => {
 			assert.ok('city' in address);
 		});
 	});
+
+	suite('buildRequestConfig with custom headers', () => {
+		test('should include custom headers in config', () => {
+			const route: LaravelRoute = {
+				method: 'GET',
+				uri: '/api/users',
+				name: 'users.index',
+				action: 'UserController@index',
+				controller: 'UserController@index',
+				middleware: []
+			};
+
+			const config = buildRequestConfig(route, 'http://localhost:8000', {
+				headers: {
+					'X-Custom-Header': 'custom-value',
+					'X-Request-ID': '12345'
+				}
+			});
+
+			assert.strictEqual(config.headers['X-Custom-Header'], 'custom-value');
+			assert.strictEqual(config.headers['X-Request-ID'], '12345');
+		});
+
+		test('should merge custom headers with default headers', () => {
+			const route: LaravelRoute = {
+				method: 'GET',
+				uri: '/api/users',
+				name: 'users.index',
+				action: 'UserController@index',
+				controller: 'UserController@index',
+				middleware: []
+			};
+
+			const config = buildRequestConfig(route, 'http://localhost:8000', {
+				headers: { 'X-Custom': 'value' }
+			});
+
+			// Should have both default Accept header and custom header
+			assert.strictEqual(config.headers['Accept'], 'application/json');
+			assert.strictEqual(config.headers['X-Custom'], 'value');
+		});
+
+		test('should allow custom headers to override default Accept header', () => {
+			const route: LaravelRoute = {
+				method: 'GET',
+				uri: '/api/users',
+				name: 'users.index',
+				action: 'UserController@index',
+				controller: 'UserController@index',
+				middleware: []
+			};
+
+			const config = buildRequestConfig(route, 'http://localhost:8000', {
+				headers: { 'Accept': 'text/html' }
+			});
+
+			assert.strictEqual(config.headers['Accept'], 'text/html');
+		});
+
+		test('should include custom headers with body params for POST', () => {
+			const route: LaravelRoute = {
+				method: 'POST',
+				uri: '/api/users',
+				name: 'users.store',
+				action: 'UserController@store',
+				controller: 'UserController@store',
+				middleware: [],
+				requestParams: [
+					{
+						name: 'name',
+						type: 'string',
+						required: true,
+						rules: ['required'],
+						isPathParam: false
+					}
+				]
+			};
+
+			const config = buildRequestConfig(route, 'http://localhost:8000', {
+				headers: { 'X-Request-Source': 'test' },
+				bodyParams: { name: 'John' }
+			});
+
+			assert.strictEqual(config.headers['X-Request-Source'], 'test');
+			assert.strictEqual(config.headers['Content-Type'], 'application/json');
+			assert.strictEqual(config.bodyParams['name'], 'John');
+		});
+
+		test('should handle empty custom headers', () => {
+			const route: LaravelRoute = {
+				method: 'GET',
+				uri: '/api/users',
+				name: 'users.index',
+				action: 'UserController@index',
+				controller: 'UserController@index',
+				middleware: []
+			};
+
+			const config = buildRequestConfig(route, 'http://localhost:8000', {
+				headers: {}
+			});
+
+			// Should still have default Accept header
+			assert.strictEqual(config.headers['Accept'], 'application/json');
+		});
+	});
 });

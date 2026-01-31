@@ -2,7 +2,7 @@
   "name": "outbound",
   "displayName": "Outbound",
   "description": "Laravel API Tester",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.108.1"
   },

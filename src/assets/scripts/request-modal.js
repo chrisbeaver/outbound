@@ -645,6 +645,17 @@ function initRequestModal(config) {
 			? window.getBearerTokenByName(selectedTokenName)
 			: null;
 		
+		// Get custom headers from the headers modal
+		const customHeaders = {};
+		if (typeof window.getCustomRequestHeaders === 'function') {
+			const headers = window.getCustomRequestHeaders();
+			for (const h of headers) {
+				if (h.key) {
+					customHeaders[h.key] = h.value;
+				}
+			}
+		}
+		
 		vscode.postMessage({
 			command: 'executeRequest',
 			method: method,
@@ -653,7 +664,8 @@ function initRequestModal(config) {
 			pathParams: pathParams,
 			disabledParams: disabledParams,
 			queryParams: queryParams,
-			bearerToken: bearerToken
+			bearerToken: bearerToken,
+			customHeaders: customHeaders
 		});
 	}
 	
@@ -1120,6 +1132,17 @@ function initRequestModal(config) {
 			? window.getBearerTokenByName(selectedTokenName)
 			: '';
 		
+		// Get custom headers from the headers modal
+		const customHeaders = {};
+		if (typeof window.getCustomRequestHeaders === 'function') {
+			const headers = window.getCustomRequestHeaders();
+			for (const h of headers) {
+				if (h.key) {
+					customHeaders[h.key] = h.value;
+				}
+			}
+		}
+		
 		// Extract method and uri from current route key
 		const [method, ...uriParts] = currentRouteKey.split(' ');
 		let uri = uriParts.join(' ');
@@ -1142,7 +1165,8 @@ function initRequestModal(config) {
 			bodyParams: bodyParams,
 			queryParams: queryParams,
 			bearerToken: bearerToken,
-			disabledParams: disabledParams
+			disabledParams: disabledParams,
+			customHeaders: customHeaders
 		});
 	});
 	

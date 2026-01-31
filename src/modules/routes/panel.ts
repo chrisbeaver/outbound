@@ -12,6 +12,7 @@ const BEARER_TOKENS_KEY = 'outbound.bearerTokens';
 const SELECTED_TOKEN_KEY = 'outbound.selectedToken';
 const CUSTOM_PARAMS_KEY = 'outbound.customParams';
 const QUERY_PARAMS_KEY = 'outbound.queryParams';
+const REQUEST_HEADERS_KEY = 'outbound.requestHeaders';
 
 /**
  * Manages the Routes Table webview panel
@@ -109,7 +110,7 @@ export class RoutesPanel {
 		this._panel.webview.onDidReceiveMessage(
 			async (message) => {
 				if (message.command === 'executeRequest') {
-					const { method, uri, bodyParams, pathParams, disabledParams, queryParams, bearerToken } = message;
+					const { method, uri, bodyParams, pathParams, disabledParams, queryParams, bearerToken, customHeaders } = message;
 					const route = getRouteStorage().get(method, uri);
 					
 					if (route) {
@@ -133,11 +134,14 @@ export class RoutesPanel {
 						if (bearerToken) {
 							this._outputChannel.appendLine(`Using Bearer Token: ${bearerToken.substring(0, 20)}...`);
 						}
+						if (customHeaders && Object.keys(customHeaders).length > 0) {
+							this._outputChannel.appendLine(`Custom Headers: ${Object.entries(customHeaders).map(([k, v]) => `${k}: ${v}`).join(', ')}`);
+						}
 						this._outputChannel.appendLine('');
 						
 						try {
-							// Pass bodyParams, pathParams, disabledParams, queryParams and bearerToken from the edited form
-							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string>; disabledParams?: string[]; queryParams?: Array<{name: string, value: string, enabled?: boolean}>; bearerToken?: string } = {};
+							// Pass bodyParams, pathParams, disabledParams, queryParams, bearerToken and customHeaders from the edited form
+							const options: { bodyParams?: Record<string, unknown>; pathParams?: Record<string, string>; disabledParams?: string[]; queryParams?: Array<{name: string, value: string, enabled?: boolean}>; bearerToken?: string; headers?: Record<string, string> } = {};
 							if (bodyParams && Object.keys(bodyParams).length > 0) {
 								options.bodyParams = bodyParams;
 							}
@@ -152,6 +156,9 @@ export class RoutesPanel {
 							}
 							if (bearerToken) {
 								options.bearerToken = bearerToken;
+							}
+							if (customHeaders && Object.keys(customHeaders).length > 0) {
+								options.headers = customHeaders;
 							}
 							const response = await executeRequest(route, options);
 							
@@ -276,7 +283,7 @@ export class RoutesPanel {
 					await this._clearQueryParams(routeKey);
 				} else if (message.command === 'buildCurl') {
 					// Build cURL command
-					const { method, uri, bodyParams, queryParams, bearerToken, disabledParams } = message;
+					const { method, uri, bodyParams, queryParams, bearerToken, disabledParams, customHeaders } = message;
 					const host = getApiHost();
 					const url = `${host.replace(/\/$/, '')}/${uri.replace(/^\//, '')}`;
 					
@@ -286,7 +293,8 @@ export class RoutesPanel {
 						bodyParams,
 						queryParams,
 						bearerToken: bearerToken || undefined,
-						disabledParams
+						disabledParams,
+						headers: customHeaders || undefined
 					});
 					
 					this._panel.webview.postMessage({
@@ -298,6 +306,10 @@ export class RoutesPanel {
 					vscode.commands.executeCommand('workbench.action.openWorkspaceSettings', {
 						query: 'outbound'
 					});
+				} else if (message.command === 'saveRequestHeaders') {
+					// Save custom request headers to workspace state
+					const { headers } = message;
+					await this._context.workspaceState.update(REQUEST_HEADERS_KEY, headers);
 				}
 			},
 			null,
@@ -433,6 +445,7 @@ export class RoutesPanel {
 		const selectedToken = this._context.workspaceState.get<string>(SELECTED_TOKEN_KEY, '');
 		const customParams = this._context.workspaceState.get<Record<string, Array<{key: string, type: string, value: unknown, enabled?: boolean}>>>(CUSTOM_PARAMS_KEY, {});
 		const queryParams = this._context.workspaceState.get<Record<string, Array<{name: string, value: string, enabled?: boolean}>>>(QUERY_PARAMS_KEY, {});
+		const requestHeaders = this._context.workspaceState.get<Array<{key: string, value: string, enabled?: boolean}>>(REQUEST_HEADERS_KEY, []);
 
 		// Load asset files
 		const assetsPath = path.join(this._extensionUri.fsPath, 'src', 'assets');
@@ -444,6 +457,7 @@ export class RoutesPanel {
 		const responseModalCss = fs.readFileSync(path.join(assetsPath, 'styles', 'response-modal.css'), 'utf8');
 		const bearerTokenCss = fs.readFileSync(path.join(assetsPath, 'styles', 'bearer-token.css'), 'utf8');
 		const objectEditorCss = fs.readFileSync(path.join(assetsPath, 'styles', 'object-editor-modal.css'), 'utf8');
+		const requestHeadersCss = fs.readFileSync(path.join(assetsPath, 'styles', 'request-headers-modal.css'), 'utf8');
 		
 		// Load HTML templates
 		let routesTableHtml = fs.readFileSync(path.join(assetsPath, 'views', 'routes-table.html'), 'utf8');
@@ -451,6 +465,7 @@ export class RoutesPanel {
 		const responseModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'response-modal.html'), 'utf8');
 		const bearerModalHtml = fs.readFileSync(path.join(assetsPath, 'views', 'bearer-token-modal.html'), 'utf8');
 		const objectEditorHtml = fs.readFileSync(path.join(assetsPath, 'views', 'object-editor-modal.html'), 'utf8');
+		const requestHeadersHtml = fs.readFileSync(path.join(assetsPath, 'views', 'request-headers-modal.html'), 'utf8');
 		
 		// Load JS files
 		const mainJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'main.js'), 'utf8');
@@ -459,6 +474,7 @@ export class RoutesPanel {
 		const responseModalJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'response-modal.js'), 'utf8');
 		const bearerTokenJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'bearer-token.js'), 'utf8');
 		const objectEditorJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'object-editor-modal.js'), 'utf8');
+		const requestHeadersJs = fs.readFileSync(path.join(assetsPath, 'scripts', 'request-headers-modal.js'), 'utf8');
 
 		// Process routes table template
 		const hasRoutes = routes.length > 0;
@@ -484,6 +500,7 @@ ${requestModalCss}
 ${responseModalCss}
 ${bearerTokenCss}
 ${objectEditorCss}
+${requestHeadersCss}
 	</style>
 </head>
 <body>
@@ -492,6 +509,7 @@ ${requestModalHtml}
 ${responseModalHtml}
 ${bearerModalHtml}
 ${objectEditorHtml}
+${requestHeadersHtml}
 	<script>
 		const vscode = acquireVsCodeApi();
 ${mainJs}
@@ -500,6 +518,7 @@ ${requestModalJs}
 ${responseModalJs}
 ${bearerTokenJs}
 ${objectEditorJs}
+${requestHeadersJs}
 		// Initialize with config
 		initRoutesTable();
 		initRequestModal({
@@ -519,6 +538,10 @@ ${objectEditorJs}
 			selectedToken: ${JSON.stringify(selectedToken)}
 		});
 		initObjectEditor();
+		initRequestHeaders({
+			vscode: vscode,
+			persistedHeaders: ${JSON.stringify(requestHeaders)}
+		});
 		
 		console.log('[Outbound] Scripts initialized');
 		
