@@ -426,8 +426,8 @@ Access these commands via the Command Palette (Ctrl+Shift+P):
 
 ## Contributing
 
-Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+<!-- Contributions are welcome! Please see our [Contributing Guide](CONTRIBUTING.md) for details. -->
 
 ## License
 
-This extension is licensed under the [MIT License](LICENSE).
+<!-- This extension is licensed under the [MIT License](LICENSE). -->
