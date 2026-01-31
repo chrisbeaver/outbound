@@ -37,7 +37,7 @@ Outbound is a powerful Visual Studio Code extension designed specifically for La
 
 Or install via the command line:
 ```bash
-code --install-extension outbound
+code --install-extension chrisbeaver.outbound
 ```
 
 ## Configuration
